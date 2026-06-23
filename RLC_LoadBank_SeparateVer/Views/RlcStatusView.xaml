@@ -1,0 +1,575 @@
+<UserControl x:Class="RLC_LoadBank_SeparateVer.Views.RlcStatusView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RLC_LoadBank_SeparateVer.ViewModels"
+             xmlns:diag="clr-namespace:RLC_LoadBank_SeparateVer.Views.Diagrams" xmlns:s="http://schemas.abtsoftware.co.uk/scichart"
+             Background="#F4F7F9" FontFamily="Segoe UI">
+    <UserControl.DataContext>
+        <vm:RlcStatusViewModel/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <!-- segmented mode button -->
+        <Style x:Key="Seg" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" CornerRadius="7" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#27A86A"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- action buttons -->
+        <Style x:Key="BtnBase" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" CornerRadius="7" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BtnGreen" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background" Value="#27A86A"/>
+        </Style>
+        <Style x:Key="BtnOrange" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background" Value="#E8943A"/>
+        </Style>
+        <Style x:Key="BtnRed" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background" Value="#E04F4F"/>
+        </Style>
+        <Style x:Key="BtnBlue" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background" Value="#2F6FE0"/>
+        </Style>
+        <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+            <Setter Property="Background" Value="#EEF1F6"/>
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        </Style>
+
+        <Style x:Key="ColHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style x:Key="MiniHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="14" Cursor="">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- top status bar -->
+            <RowDefinition Height="605"/>
+            <!-- diagram -->
+            <RowDefinition Height="260"/>
+            <!-- bottom panels -->
+        </Grid.RowDefinitions>
+
+        <!-- ============ TOP STATUS BAR ============ -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- PLC comm -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="PLC 통신" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                    <Ellipse Width="10" Height="10" Margin="8,0,16,0" VerticalAlignment="Center"
+                             Fill="{Binding PlcCommOk, Converter={StaticResource ConnBrush}}"/>
+                    <ItemsControl ItemsSource="{Binding Panels}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#F5F7FA" CornerRadius="7" Padding="10,5" Margin="4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                 Fill="{Binding LinkState, Converter={StaticResource ConnBrush}}"/>
+                                        <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                                        <TextBlock Text="{Binding ConnText}" FontSize="11" Margin="6,0,0,0" Foreground="{StaticResource SubInkBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- operation mode -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="운전 모드" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Border Background="#F0F2F6" CornerRadius="9" Padding="3">
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton Style="{StaticResource Seg}" Content="자동모드"
+                                          IsChecked="{Binding IsAuto, Mode=OneWay}" Command="{Binding SetAutoCommand}"/>
+                            <ToggleButton Style="{StaticResource Seg}" Content="수동모드"
+                                          IsChecked="{Binding IsManual, Mode=OneWay}" Command="{Binding SetManualCommand}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- state chips -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+                    <TextBlock Text="상태" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <!-- E-Stop: EStopOk=true → 정상(녹색), false → 동작(빨간) -->
+                    <Border CornerRadius="7" Padding="9,5" Margin="3,0"
+                            Background="{Binding EStopOk, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#EAF7F0|#FDE8E8'}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,5,0"
+                                     Fill="{Binding EStopOk, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#27A86A|#E04F4F'}"/>
+                            <TextBlock FontSize="11" Foreground="{StaticResource InkBrush}"
+                                       Text="{Binding EStopOk, Converter={StaticResource BoolToTextConverter}, ConverterParameter='E-Stop 정상|E-Stop 동작'}"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- 알람: AlarmWait=false → 정상(녹색), true → 알람 있음(주황) -->
+                    <Border CornerRadius="7" Padding="9,5" Margin="3,0"
+                            Background="{Binding AlarmWait, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#FBF1E3|#EAF7F0'}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,5,0"
+                                     Fill="{Binding AlarmWait, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#E8943A|#27A86A'}"/>
+                            <TextBlock FontSize="11" Foreground="{StaticResource InkBrush}"
+                                       Text="{Binding AlarmWait, Converter={StaticResource BoolToTextConverter}, ConverterParameter='보호 동작|보호 정상'}"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Heartbeat: 항상 PLC 통신 상태 -->
+                    <Border CornerRadius="7" Padding="9,5" Margin="3,0"
+                            Background="{Binding PlcCommOk, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#EAF7F0|#F5F5F5'}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,5,0"
+                                     Fill="{Binding PlcCommOk, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#27A86A|#ADB4BF'}"/>
+                            <TextBlock FontSize="11" Foreground="{StaticResource InkBrush}"
+                                       Text="{Binding PlcCommOk, Converter={StaticResource BoolToTextConverter}, ConverterParameter='PLC 통신 OK|PLC 미연결'}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- date/time -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,4,0">
+                    <TextBlock Text="날짜/시간" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="{Binding Now, StringFormat='yyyy-MM-dd  HH:mm:ss'}" FontSize="13"
+                               VerticalAlignment="Center" Foreground="{StaticResource InkBrush}"/>
+                    <Button Content="⚙ 연결 설정" Style="{StaticResource BtnGhost}" Height="30" Margin="14,0,0,0"
+                            Command="{Binding OpenConnectionCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ DIAGRAM ============ -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1340"/>
+                    <ColumnDefinition Width="440"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Header (spans both columns) -->
+                <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="2,0,2,10">
+                    <TextBlock Text="RLC Diagram / MC Status" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Ellipse Width="11" Height="11" Stroke="#27A86A" StrokeThickness="2.5" Fill="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="ON" Margin="5,0,0,0" FontSize="11"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Ellipse Width="11" Height="11" Stroke="#ADB4BF" StrokeThickness="2.5" Fill="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="OFF" Margin="5,0,0,0" FontSize="11"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Ellipse Width="11" Height="11" Fill="#E8943A" VerticalAlignment="Center"/>
+                            <TextBlock Text="COMM WAIT" Margin="5,0,0,0" FontSize="11"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Ellipse Width="11" Height="11" Fill="#E04F4F" VerticalAlignment="Center"/>
+                            <TextBlock Text="TRIP" Margin="5,0,0,0" FontSize="11"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Ellipse Width="11" Height="11" Fill="#E04F4F" VerticalAlignment="Center"/>
+                            <TextBlock Text="ALARM" Margin="5,0,0,0" FontSize="11"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Column 0: RLC Diagram (scrollable) -->
+                <ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <diag:RlcDiagramView Height="505"/>
+                </ScrollViewer>
+
+                <!-- Column 1: 수동운전 + 자동운전 (세로 배치, ScrollViewer로 잘림 방지) -->
+                <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="10,0,0,0" Height="500"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+
+                        <!-- 1. 수동운전 -->
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="1. 수동운전" Style="{StaticResource ColHeader}"/>
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width=".7*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- 부하 제어 -->
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="부하 제어" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource SubInkBrush}" Margin="0,0,0,6"/>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="50"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="R 부하" VerticalAlignment="Center" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="ON" Style="{StaticResource BtnOrange}" Margin="0,0,3,0" Command="{Binding LoadOnCommand}" CommandParameter="R"/>
+                                            <Button Grid.Column="2" Content="OFF" Style="{StaticResource BtnGhost}" Command="{Binding LoadOffCommand}" CommandParameter="R"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="50"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="L 리액터" VerticalAlignment="Center" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="ON" Style="{StaticResource BtnOrange}" Margin="0,0,3,0" Command="{Binding LoadOnCommand}" CommandParameter="L"/>
+                                            <Button Grid.Column="2" Content="OFF" Style="{StaticResource BtnGhost}" Command="{Binding LoadOffCommand}" CommandParameter="L"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="50"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="C 부하" VerticalAlignment="Center" FontSize="11"/>
+                                            <Button Grid.Column="1" Content="ON" Style="{StaticResource BtnBlue}" Margin="0,0,3,0" Command="{Binding LoadOnCommand}" CommandParameter="C"/>
+                                            <Button Grid.Column="2" Content="OFF" Style="{StaticResource BtnGhost}" Command="{Binding LoadOffCommand}" CommandParameter="C"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <!-- MCCB + Reset -->
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="MCCB 제어" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                                        <Button Content="MCCB ON" Style="{StaticResource BtnGreen}" Margin="0,0,0,8" Command="{Binding MccbOnCommand}"/>
+                                        <Button Content="MCCB OFF" Style="{StaticResource BtnGhost}" Margin="0,0,0,8" Command="{Binding MccbOffCommand}"/>
+                                        <Button Content="TRIP" Style="{StaticResource BtnRed}" Margin="0,0,0,8" Command="{Binding MccbTripCommand}"/>
+                                        <Separator Margin="0,2,0,8"/>
+                                        <Button Content="RESET" Style="{StaticResource BtnGhost}" Command="{Binding ResetCommand}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- 2. 자동운전 -->
+                        <Border Style="{StaticResource Card}" Height="243">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="2. 자동운전" Style="{StaticResource ColHeader}"/>
+                                <StackPanel Grid.Row="1">
+                                    <!-- mode toggle + 판넬 선택 -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                                        <Border Background="#F0F2F6" CornerRadius="9" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Style="{StaticResource Seg}" Content="개별"
+                                                              IsChecked="{Binding IsIndividual, Mode=OneWay}"
+                                                              Command="{Binding SetAutoIndividualCommand}"/>
+                                                <ToggleButton Style="{StaticResource Seg}" Content="전력·역률"
+                                                              IsChecked="{Binding IsPowerPf, Mode=OneWay}"
+                                                              Command="{Binding SetAutoPowerPfCommand}"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <!-- 판넬 선택: 바인딩 없음 — code-behind에서 Items를 직접 관리.
+                                             WPF 바인딩 경로를 완전히 차단해 TargetException을 근본 제거. -->
+                                        <ComboBox x:Name="PanelComboBox"
+                                                  SelectionChanged="PanelComboBox_SelectionChanged"
+                                                  MinWidth="120" Margin="8,0,0,0" Height="28"
+                                                  VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                  FontSize="11"/>
+                                    </StackPanel>
+                                    <!-- individual R/L/C -->
+                                    <StackPanel Visibility="{Binding IsIndividual, Converter={StaticResource BoolVis}}">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="30"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="R 목표 (kW)" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox Grid.Column="1" Text="{Binding RTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="kW" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="30"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="L 목표 (kvar)" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox Grid.Column="1" Text="{Binding LTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="kvar" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="30"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="C 목표 (kvar)" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox Grid.Column="1" Text="{Binding CTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="kvar" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <!-- power + power factor -->
+                                    <StackPanel Visibility="{Binding IsPowerPf, Converter={StaticResource BoolVis}}">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="목표 전력" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox Grid.Column="1" Text="{Binding TargetPower, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="kW" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="목표 역률" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBox Grid.Column="1" Text="{Binding TargetPf, StringFormat=F2}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="2" Text="PF" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                                        </Grid>
+                                        <CheckBox Content="진상 (C부하 보상)" IsChecked="{Binding LeadingPf}"
+                                                  FontSize="11" Margin="0,0,0,6"/>
+                                    </StackPanel>
+                                    <!-- 운전 제어 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Content="▶ 운전 시작" Style="{StaticResource BtnGreen}" Margin="0,10,4,0" Command="{Binding StartAutoCommand}"/>
+                                        <Button Grid.Column="1" Content="■ 운전 정지" Style="{StaticResource BtnGhost}" Margin="4,10,0,0" Command="{Binding StopAutoCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- ============ BOTTOM PANELS ============ -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.3*"/>
+                <ColumnDefinition Width="1.3*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Col 0+1: 전력 트렌드 차트 (수동/자동운전이 있던 자리) -->
+            <Border Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Margin="0,0,6,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                        <TextBlock Text="전력 트렌드 (kW)" FontWeight="Bold" FontSize="14"
+                                   Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Ellipse Width="9" Height="9" Fill="#E04F4F" VerticalAlignment="Center"/>
+                            <TextBlock Text="PNL-1" FontSize="11" Margin="4,0,12,0"/>
+                            <Ellipse Width="9" Height="9" Fill="#27A86A" VerticalAlignment="Center"/>
+                            <TextBlock Text="PNL-2" FontSize="11" Margin="4,0,12,0"/>
+                            <Ellipse Width="9" Height="9" Fill="#4B7BF5" VerticalAlignment="Center"/>
+                            <TextBlock Text="PNL-3" FontSize="11" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <s:SciChartSurface Grid.Row="1" s:ThemeManager.Theme="BrightSpark" Background="Transparent">
+                        <s:SciChartSurface.RenderableSeries>
+                            <s:FastLineRenderableSeries DataSeries="{Binding Pnl1PowerSeries}" Stroke="#E04F4F" StrokeThickness="2"/>
+                            <s:FastLineRenderableSeries DataSeries="{Binding Pnl2PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
+                            <s:FastLineRenderableSeries DataSeries="{Binding Pnl3PowerSeries}" Stroke="#4B7BF5" StrokeThickness="2"/>
+                        </s:SciChartSurface.RenderableSeries>
+                        <s:SciChartSurface.XAxes>
+                            <s:DateTimeAxis MaxAutoTicks="15"
+                                            AutoRange="Never"
+                                            DrawMajorGridLines="True" 
+                                            DrawMinorGridLines="False"
+                                            DrawMajorTicks="False"
+                                            DrawMinorTicks="False"
+                                            TextFormatting="HH:mm"
+                                            FontSize="13"
+                                            AxisTitle="Time"
+                                            />
+                        </s:SciChartSurface.XAxes>
+                        <s:SciChartSurface.YAxes>
+                            <s:NumericAxis DrawMajorBands="False"
+                                           AutoRange="Always"
+                                           DrawMajorTicks="False"
+                                           DrawMinorTicks="False"
+                                           DrawMajorGridLines="True"
+                                           DrawMinorGridLines="False"
+                                           GrowBy="0.1, 0.2"
+                                           MaxAutoTicks="5"
+                                           FontSize="13"
+                                           AxisTitle="kW"/>
+                        </s:SciChartSurface.YAxes>
+                        <s:SciChartSurface.ChartModifier>
+                            <s:ModifierGroup>
+                                <s:RolloverModifier DrawVerticalLine="True"
+                                                    ShowTooltipOn="MouseOver"
+                                                    ShowAxisLabels="True"/>
+                                <s:MouseWheelZoomModifier/>
+                                <s:ZoomPanModifier ExecuteOn="MouseLeftButton"/>
+                            </s:ModifierGroup>
+                        </s:SciChartSurface.ChartModifier>
+                    </s:SciChartSurface>
+                </Grid>
+            </Border>
+
+            <!-- 3. Trip / Alarm -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Margin="6,0,6,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="3. 트립 / 알람" Style="{StaticResource ColHeader}"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Alarms}" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
+                              RowHeight="28" FontSize="11.5" Background="Transparent" RowBackground="Transparent"
+                              CanUserAddRows="False" HorizontalScrollBarVisibility="Disabled">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="시간" Binding="{Binding TimeText}" Width="110"/>
+                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="50"/>
+                            <DataGridTextColumn Header="알람 내용" Binding="{Binding Message}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Message}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="상태" Width="66">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Level}" Foreground="Black" FontSize="10" FontWeight="SemiBold"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Button HorizontalAlignment="Left" Content="알람 확인" Style="{StaticResource BtnGhost}" Width="90" Command="{Binding AckAlarmsCommand}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock Text="미확인 알람 : " Foreground="{StaticResource RedBrush}" FontWeight="SemiBold" FontSize="12"/>
+                            <TextBlock Text="{Binding UnackCount}" Foreground="{StaticResource RedBrush}" FontWeight="Bold" FontSize="12"/>
+                            <TextBlock Text="건" Foreground="{StaticResource RedBrush}" FontWeight="SemiBold" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 4. History -->
+            <Border Grid.Column="3" Style="{StaticResource Card}" Margin="6,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="4. 운전 이력" Style="{StaticResource ColHeader}"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding History}" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
+                              RowHeight="28" FontSize="11.5" Background="Transparent" RowBackground="Transparent"
+                              CanUserAddRows="False" HorizontalScrollBarVisibility="Disabled">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="시간" Binding="{Binding TimeText}" Width="110"/>
+                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="50"/>
+                            <DataGridTextColumn Header="이벤트 내용" Binding="{Binding Event}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Event}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="결과" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Result}" Foreground="#27A86A" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Content="◀◀" Style="{StaticResource BtnGhost}" Width="42" Margin="0,0,4,0"/>
+                            <Button Content="◀" Style="{StaticResource BtnGhost}" Width="42" Margin="0,0,8,0"/>
+                            <TextBlock Text="1 / 10" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource SubInkBrush}"/>
+                            <Button Content="▶" Style="{StaticResource BtnGhost}" Width="42" Margin="8,0,4,0"/>
+                            <Button Content="▶▶" Style="{StaticResource BtnGhost}" Width="42"/>
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" Content="↻ 새로고침" Style="{StaticResource BtnGhost}" Width="100"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

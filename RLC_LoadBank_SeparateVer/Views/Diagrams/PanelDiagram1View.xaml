@@ -1,0 +1,107 @@
+<UserControl x:Class="RLC_LoadBank_SeparateVer.Views.Diagrams.PanelDiagram1View"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI">
+    <!-- DataContext = PanelViewModel (PLC1, single-phase individual control) -->
+    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="10" Background="White" Padding="12" Margin="4">
+        <StackPanel>
+            <!-- header -->
+            <Border Background="#EEF3FB" CornerRadius="7" Padding="10,6" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                    <TextBlock Text="{Binding ControlMode}" Foreground="{StaticResource SubInkBrush}" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <Ellipse Width="9" Height="9" Margin="12,0,5,0" VerticalAlignment="Center" Fill="{Binding LinkState, Converter={StaticResource ConnBrush}}"/>
+                    <TextBlock Text="{Binding ConnText}" FontSize="12" VerticalAlignment="Center" Foreground="{StaticResource SubInkBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- AC source + MCCB + feeders -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Padding="12,10" Background="#FBFCFE">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="AC SOURCE" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center"/>
+                            <TextBlock Text="3P4W / 380V / 60Hz" FontSize="10" Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Margin="0,1,0,6"/>
+                            <Grid Width="48" Height="48">
+                                <Ellipse Stroke="{StaticResource SubInkBrush}" StrokeThickness="1.5"/>
+                                <TextBlock Text="~" FontSize="31" HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="{StaticResource SubInkBrush}"/>
+                            </Grid>
+                            <Border CornerRadius="6" Padding="0,3" Margin="0,8,0,0" Width="64">
+                                <Grid>
+                                    <Border CornerRadius="6" Background="#27A86A" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}}">
+                                        <TextBlock Text="MCCB1  ON" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                    </Border>
+                                    <Border CornerRadius="6" Background="#ADB4BF" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
+                                        <TextBlock Text="MCCB1  OFF" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="R-N  L1" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                        <TextBlock Text="S-N  L2" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
+                        <TextBlock Text="T-N  L3" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- loads -->
+                <StackPanel Grid.Column="1">
+                    <!-- R -->
+                    <Border BorderBrush="#F0C9C9" BorderThickness="1.4" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="R 부하" Foreground="{StaticResource RedBrush}" Style="{StaticResource LoadBoxHeader}"/>
+                            <ItemsControl ItemsSource="{Binding RGroups}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1">
+                                            <TextBlock Text="{Binding Label}" Width="34" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource SubInkBrush}"/>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource McCircle}"/></DataTemplate></ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                    <!-- L -->
+                    <Border BorderBrush="#F3DCB6" BorderThickness="1.4" CornerRadius="8" Padding="10,8" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="L 리액터" Foreground="{StaticResource OrangeBrush}" Style="{StaticResource LoadBoxHeader}"/>
+                            <ItemsControl ItemsSource="{Binding LGroups}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1">
+                                            <TextBlock Text="{Binding Label}" Width="34" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource SubInkBrush}"/>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource McCircle}"/></DataTemplate></ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                    <!-- C -->
+                    <Border BorderBrush="#BFD6F5" BorderThickness="1.4" CornerRadius="8" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="C 부하" Foreground="{StaticResource BlueBrush}" Style="{StaticResource LoadBoxHeader}"/>
+                            <ItemsControl ItemsSource="{Binding CSteps}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource McCircle}"/></DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

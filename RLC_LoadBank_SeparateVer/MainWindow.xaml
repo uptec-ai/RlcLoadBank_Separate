@@ -1,0 +1,307 @@
+﻿<dx:ThemedWindow 
+    x:Class="RLC_LoadBank_SeparateVer.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+    xmlns:Views="clr-namespace:RLC_LoadBank_SeparateVer.Views"
+    xmlns:dxwui="http://schemas.devexpress.com/winfx/2008/xaml/windowsui" 
+    xmlns:dxr="http://schemas.devexpress.com/winfx/2008/xaml/ribbon" 
+    xmlns:dxb="http://schemas.devexpress.com/winfx/2008/xaml/bars"
+    Title="RLC Load Bank"
+    Width="1920"
+    Height="1020"
+    MinWidth="1920"
+    MinHeight="100"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="ToolWindow"
+    WindowState="Maximized"
+    >
+    <dx:ThemedWindow.Resources>
+        <Style x:Key="NavigationButtonStyle" TargetType="dxwui:HamburgerMenuNavigationButton">
+            <Setter Property="Foreground" Value="#FF727272"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Noto Sans KR"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="GlyphWidth" Value="32"/>
+            <Setter Property="GlyphHeight" Value="32"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFDADADA"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FFC5C5C5"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </dx:ThemedWindow.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="34"/>
+        </Grid.RowDefinitions>
+
+
+        <dxwui:HamburgerMenu Grid.Row="0" Grid.Column="0" AvailableViewStates="Overlay"
+                             CompactWidth="65"
+                             PaneBackground="White" Background="#F4F7F9"
+                             AllowBuiltInNavigation="False" SyncWithActivePage="False"
+                             FontFamily="Malgun Gothic" >
+            <dxwui:HamburgerMenu.Resources>
+                <Style TargetType="{x:Type dxwui:HamburgerMenuToggleStateButton}">
+                    <Setter Property="Foreground" Value="#FF727272"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#FFC5C5C5"/>
+                            <Setter Property="BorderBrush" Value="#FFC5C5C5"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Background" Value="#FFC5C5C5"/>
+                            <Setter Property="BorderBrush" Value="#FFC5C5C5"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </dxwui:HamburgerMenu.Resources>
+            <dxwui:HamburgerMenu.Content>
+                <dxwui:NavigationFrame x:Name="NaviFrame" BorderThickness="1,0,0,0"/>
+            </dxwui:HamburgerMenu.Content>
+            <!-- Dashboard -->
+            <dxwui:HamburgerMenuNavigationButton x:Name="Btn_Dashboard"
+                                                 Content="DASHBOARD" 
+                                                 ToolTip="DASHBOARD VIEW" 
+                                                 IsSelected="True"
+                                                 Style="{StaticResource NavigationButtonStyle}"
+                                                 Glyph="{dx:DXImage SvgImages/Icon Builder/Electronics_DesktopMac.svg}" Click="Btn_Dashboard_Click"/>
+
+            <!-- System Status -->
+            <dxwui:HamburgerMenuNavigationButton x:Name="Btn_SystemStatus" 
+                                                 Content="SYSTEM STATUS" 
+                                                 ToolTip="SYSTEM STATUS VIEW"
+                                                 Style="{StaticResource NavigationButtonStyle}"
+                                                 Glyph="{dx:DXImage SvgImages/Spreadsheet/FunctionsStatistical.svg}" Click="Btn_SystemStatus_Click"/>
+
+            <!-- History -->
+            <dxwui:HamburgerMenuNavigationButton x:Name="Btn_History" 
+                                                 Content="HISTORY" 
+                                                 ToolTip="HISTORY VIEW"
+                                                 Style="{StaticResource NavigationButtonStyle}"
+                                                 Glyph="{dx:DXImage SvgImages/RichEdit/DocumentStatistics.svg}" Click="Btn_History_Click"/>
+
+
+
+            <dxwui:HamburgerMenuItemSeparator Height="10" Background="#FFBFBFBF"/>
+
+            <dxwui:HamburgerMenuItemSeparator Height="10" Placement="Bottom" Background="#FFBFBFBF"/>
+
+            <!--Uptec Info-->
+            <dxwui:HamburgerMenuNavigationButton Content="UPTEC" ToolTip="Uptec Info" IsHitTestVisible="False"
+                                                 GlyphWidth="32" GlyphHeight="32" Placement="Bottom" 
+                                                 Glyph="{dx:DXImage SvgImages/XAF/Action_AboutInfo.svg}" GlyphStretch="UniformToFill"
+                                                 Style="{StaticResource NavigationButtonStyle}"
+                                                 Click="InfoBtn_Click" />
+            <!--System Close-->
+            <dxwui:HamburgerMenuNavigationButton x:Name="ExitBtn" Content="Exit" ToolTip="Close App" Placement="Bottom"
+                                                 GlyphWidth="32" GlyphHeight="32" AllowGlyphTheming="True" 
+                                                 Glyph="{dx:DXImage SvgImages/Icon Builder/Actions_DeleteCircled.svg}"
+                                                 Style="{StaticResource NavigationButtonStyle}"
+                                                 Click="ExitBtn_Click" />
+        </dxwui:HamburgerMenu>
+
+        <!--Log-->
+        <dxr:RibbonStatusBarControl HorizontalAlignment="Stretch" Grid.Row="1" VerticalAlignment="Stretch" Background="White">
+            <dxr:RibbonStatusBarControl.LeftItems>
+                <!--PCS-->
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True"
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Electronics_Router.svg'}"
+                                   Content="{Binding StatusManager.Network, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" Foreground="#FF333333" FontSize="12" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem Content="        " ShowBorder="False"/>
+
+                <!--BMS-->
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True"
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Electronics_Router.svg'}"
+                                   Content="{Binding StatusManager.Modbus, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" Foreground="#FF333333" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem Content="        " ShowBorder="False"/>
+
+                <!--Modbus Temperature Device-->
+                <!--<dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True"
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage SvgImages/Icon Builder/Electronics_Router.svg}"
+                                   Content="{Binding StatusManager.Modbus, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,0,0,0" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem Content="        " ShowBorder="False"/>-->
+
+                <!--System Message-->
+                <dxb:BarStaticItem ShowBorder="False"
+                                   AllowGlyphTheming="True"
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Actions_Comment.svg'}"
+                                   Content="{Binding StatusManager.CommState, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+            </dxr:RibbonStatusBarControl.LeftItems>
+
+            <!--Right Item-->
+            <dxr:RibbonStatusBarControl.RightItems>
+                <!--Temperature #1-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor1, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>
+                -->
+                <!--Temperature #2-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor2, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>
+                -->
+                <!--Temperature #3-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor3, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>
+                -->
+                <!--Temperature #4-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor4, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>
+                -->
+                <!--Temperature #5-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor5, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>
+                -->
+                <!--Temperature #6-->
+                <!--
+                <dxb:BarStaticItem ShowBorder="False" Margin="10,1,0,0" 
+                                   Content="{Binding TempSensor6, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,1,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,3,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Weather_DegreeCelsius.svg'}"/>-->
+
+                <dxb:BarStaticItem Content="              " ShowBorder="False"/>
+
+                <!-- System -->
+                <!--<dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,1"
+                                   Glyph="{dx:DXImage 'SvgImages/Outlook Inspired/ProductQuicTopSalesperson.svg'}"
+                                   Content="{Binding StatusManager.SystemState, Source={x:Static Application.Current}}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="10,0,0,0" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                
+                <dxb:BarStaticItem Content="              " ShowBorder="False"/>-->
+
+                <dxb:BarStaticItem ShowBorder="False" 
+                                   AllowGlyphTheming="True" 
+                                   GlyphSize="Custom" CustomGlyphSize="20,20" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/XAF/State_Task_InProgress.svg'}"
+                                   Content="{Binding StatusManager.CurrentTime, Source={x:Static Application.Current}}" >
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+            </dxr:RibbonStatusBarControl.RightItems>
+        </dxr:RibbonStatusBarControl>
+    </Grid>
+</dx:ThemedWindow>

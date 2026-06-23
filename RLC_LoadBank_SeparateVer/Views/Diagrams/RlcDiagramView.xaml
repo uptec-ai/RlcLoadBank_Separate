@@ -1,0 +1,58 @@
+<UserControl x:Class="RLC_LoadBank_SeparateVer.Views.Diagrams.RlcDiagramView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:diag="clr-namespace:RLC_LoadBank_SeparateVer.Views.Diagrams"
+             FontFamily="Segoe UI">
+    <!-- DataContext = RlcStatusViewModel (Panels). Integrated monitoring diagram:
+         each panel column shows its block when connected, else a placeholder. PNL-M always shown. -->
+    <UserControl.Resources>
+        <Style x:Key="PlaceholderCard" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#CBD3DE"/>
+            <Setter Property="BorderThickness" Value="1.4"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="#FAFBFD"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="MinWidth" Value="200"/>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel Orientation="Horizontal">
+
+        <!-- PLC1 -->
+        <Grid DataContext="{Binding Panel1}">
+            <diag:PanelDiagram1View Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}}"/>
+            <Border Style="{StaticResource PlaceholderCard}" Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="🔗" FontSize="26" HorizontalAlignment="Center" Foreground="#CBD3DE"/>
+                    <TextBlock Text="{Binding Title}" Margin="0,8,0,0" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                    <TextBlock Text="미연결 — 연결 시 Diagram 자동 표시" Margin="0,4,0,0" HorizontalAlignment="Center" FontSize="11" Foreground="{StaticResource GreyBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- PLC2 -->
+        <Grid DataContext="{Binding Panel2}">
+            <diag:PanelDiagram3PhaseView Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}}"/>
+            <Border Style="{StaticResource PlaceholderCard}" Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="🔗" FontSize="26" HorizontalAlignment="Center" Foreground="#CBD3DE"/>
+                    <TextBlock Text="{Binding Title}" Margin="0,8,0,0" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                    <TextBlock Text="미연결 — 연결 시 Diagram 자동 표시" Margin="0,4,0,0" HorizontalAlignment="Center" FontSize="11" Foreground="{StaticResource GreyBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- PLC3 -->
+        <Grid DataContext="{Binding Panel3}">
+            <diag:PanelDiagram3PhaseView Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}}"/>
+            <Border Style="{StaticResource PlaceholderCard}" Visibility="{Binding IsConnected, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="🔗" FontSize="26" HorizontalAlignment="Center" Foreground="#CBD3DE"/>
+                    <TextBlock Text="{Binding Title}" Margin="0,8,0,0" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                    <TextBlock Text="미연결 — 연결 시 Diagram 자동 표시" Margin="0,4,0,0" HorizontalAlignment="Center" FontSize="11" Foreground="{StaticResource GreyBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+    </StackPanel>
+</UserControl>

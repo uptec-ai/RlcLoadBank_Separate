@@ -1,0 +1,94 @@
+<UserControl x:Class="RLC_LoadBank_SeparateVer.Views.MeteringView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RLC_LoadBank_SeparateVer.ViewModels"
+             xmlns:s="http://schemas.abtsoftware.co.uk/scichart"
+             Background="#F4F7F9" FontFamily="Malgun Gothic">
+    <UserControl.DataContext>
+        <vm:MeteringViewModel/>
+    </UserControl.DataContext>
+
+    <UserControl.Resources>
+        <Style x:Key="Kpi" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Padding" Value="14,10"/>
+        </Style>
+        <Style x:Key="KpiVal" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        </Style>
+        <Style x:Key="KpiCap" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="220"/>
+        </Grid.RowDefinitions>
+
+        <!-- header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,12">
+            <TextBlock Text="계측 현황" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderText}" VerticalAlignment="Center"/>
+            <TextBlock Text="GIMAC 1000 (BUS) · EOCR-iSEM2 + sPDM (#1–#10)" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="12,4,0,0"/>
+            <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" Width="140" Height="28" Margin="20,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- KPI cards -->
+        <UniformGrid Grid.Row="1" Rows="1" Columns="7" Margin="0,0,0,12">
+            <Border Style="{StaticResource Kpi}" Margin="0,0,6,0"><StackPanel><TextBlock Text="평균 전압" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding AvgVoltage, StringFormat=F1, Mode=OneWay}"/><Run Text=" V" FontSize="12"/></TextBlock></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="평균 전류" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding AvgCurrent, StringFormat=F1, Mode=OneWay}"/><Run Text=" A" FontSize="12"/></TextBlock></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="유효전력" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding ActivePower, StringFormat=F1, Mode=OneWay}"/><Run Text=" kW" FontSize="12"/></TextBlock></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="무효전력" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding ReactivePower, StringFormat=F1, Mode=OneWay}"/><Run Text=" kvar" FontSize="12"/></TextBlock></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="역률" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}" Text="{Binding Pf, StringFormat=F3, Mode=OneWay}"/></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="주파수" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding Frequency, StringFormat=F2, Mode=OneWay}"/><Run Text=" Hz" FontSize="12"/></TextBlock></StackPanel></Border>
+            <Border Style="{StaticResource Kpi}" Margin="6,0,0,0"><StackPanel><TextBlock Text="전압 THD" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding VoltageThd, StringFormat=F1, Mode=OneWay}"/><Run Text=" %" FontSize="12"/></TextBlock></StackPanel></Border>
+        </UniformGrid>
+
+        <!-- EOCR line meters -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="EOCR 선로 계측 (#1–#10)" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                <DataGrid Grid.Row="1" ItemsSource="{Binding Lines}" AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
+                          RowHeight="30" FontSize="12" Background="Transparent" RowBackground="Transparent" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="선로" Binding="{Binding Name}" Width="90"/>
+                        <DataGridTextColumn Header="전압" Binding="{Binding VoltageText}" Width="*"/>
+                        <DataGridTextColumn Header="전류" Binding="{Binding CurrentText}" Width="*"/>
+                        <DataGridTextColumn Header="유효전력" Binding="{Binding PowerText}" Width="*"/>
+                        <DataGridTextColumn Header="역률" Binding="{Binding PfText}" Width="*"/>
+                        <DataGridTextColumn Header="전류 THD" Binding="{Binding ThdText}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- live trend -->
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="실시간 트렌드 (전압 / 전류 / 유효전력)" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+                <s:SciChartSurface Grid.Row="1">
+                    <s:SciChartSurface.RenderableSeries>
+                        <s:FastLineRenderableSeries DataSeries="{Binding VoltageSeries}" Stroke="#2F6FE0" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding CurrentSeries}" Stroke="#E8943A" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
+                    </s:SciChartSurface.RenderableSeries>
+                    <s:SciChartSurface.XAxes>
+                        <s:DateTimeAxis DrawMajorGridLines="True" DrawMinorGridLines="False"/>
+                    </s:SciChartSurface.XAxes>
+                    <s:SciChartSurface.YAxes>
+                        <s:NumericAxis AutoRange="Always"/>
+                    </s:SciChartSurface.YAxes>
+                </s:SciChartSurface>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
