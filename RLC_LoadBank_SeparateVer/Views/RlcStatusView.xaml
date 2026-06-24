@@ -210,26 +210,243 @@
                 <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="2,0,2,10">
                     <TextBlock Text="RLC Diagram / MC Status" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Margin="8,0">
-                            <Ellipse Width="11" Height="11" Stroke="#27A86A" StrokeThickness="2.5" Fill="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="ON" Margin="5,0,0,0" FontSize="11"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0">
-                            <Ellipse Width="11" Height="11" Stroke="#ADB4BF" StrokeThickness="2.5" Fill="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="OFF" Margin="5,0,0,0" FontSize="11"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0">
-                            <Ellipse Width="11" Height="11" Fill="#E8943A" VerticalAlignment="Center"/>
-                            <TextBlock Text="COMM WAIT" Margin="5,0,0,0" FontSize="11"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0">
-                            <Ellipse Width="11" Height="11" Fill="#E04F4F" VerticalAlignment="Center"/>
-                            <TextBlock Text="TRIP" Margin="5,0,0,0" FontSize="11"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0">
-                            <Ellipse Width="11" Height="11" Fill="#E04F4F" VerticalAlignment="Center"/>
-                            <TextBlock Text="ALARM" Margin="5,0,0,0" FontSize="11"/>
-                        </StackPanel>
+
+                        <!-- ON 상태 칩: 운전중=초록 / Trip·Alarm=빨강 / 미운전=Ghost -->
+                        <Border CornerRadius="6" Padding="9,4" Margin="3,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#EEF1F6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                            <Setter Property="Background" Value="#EAF7F0"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ADB4BF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                                    <Setter Property="Fill" Value="#27A86A"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="ON" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                                    <Setter Property="Foreground" Value="#27A86A"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- OFF 상태 칩: 연결됐으나 정지=초록 / Trip·Alarm=빨강 / 미연결=Ghost -->
+                        <Border CornerRadius="6" Padding="9,4" Margin="3,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#EEF1F6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                            <Setter Property="Background" Value="#EAF7F0"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ADB4BF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                                    <Setter Property="Fill" Value="#27A86A"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="OFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                                    <Setter Property="Foreground" Value="#27A86A"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- COMM WAIT 칩: MC 명령 후 FB 대기 중일 때 주황 -->
+                        <Border CornerRadius="6" Padding="9,4" Margin="3,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#EEF1F6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCommWait}" Value="True">
+                                            <Setter Property="Background" Value="#FBF1E3"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ADB4BF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCommWait}" Value="True">
+                                                    <Setter Property="Fill" Value="#E8943A"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="COMM WAIT" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCommWait}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E8943A"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TRIP 칩: 미확인 Trip 알람 존재 시 빨강 -->
+                        <Border CornerRadius="6" Padding="9,4" Margin="3,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#EEF1F6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ADB4BF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="TRIP" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ALARM 칩: 미확인 Alarm 존재 시 빨강 -->
+                        <Border CornerRadius="6" Padding="9,4" Margin="3,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#EEF1F6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                            <Setter Property="Background" Value="#FDE8E8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,5,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ADB4BF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Fill" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="ALARM" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E04F4F"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </Grid>
 
@@ -238,19 +455,32 @@
                     <diag:RlcDiagramView Height="505"/>
                 </ScrollViewer>
 
-                <!-- Column 1: 수동운전 + 자동운전 (세로 배치, ScrollViewer로 잘림 방지) -->
-                <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="10,0,0,0" Height="500"
-                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
+                <!-- Column 1: 판넬 선택 + 운전모드별 Border (수동 XOR 자동) -->
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,0">
 
-                        <!-- 1. 수동운전 -->
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,6">
+                    <!-- 공통 판넬 선택 (수동/자동 공유) -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="8,6">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="판넬 선택" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{StaticResource SubInkBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="PanelComboBox"
+                                      SelectionChanged="PanelComboBox_SelectionChanged"
+                                      MinWidth="130" Height="28"
+                                      VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                      FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 수동운전 (수동모드일 때만 표출) -->
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,6"
+                            Visibility="{Binding IsManual, Converter={StaticResource BoolVis}}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="1. 수동운전" Style="{StaticResource ColHeader}"/>
+                                <TextBlock Grid.Row="0" Text="수동운전" Style="{StaticResource ColHeader}"/>
                                 <Grid Grid.Row="1">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -305,35 +535,28 @@
                             </Grid>
                         </Border>
 
-                        <!-- 2. 자동운전 -->
-                        <Border Style="{StaticResource Card}" Height="243">
+                    <!-- 자동운전 (자동모드일 때만 표출) -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding IsAuto, Converter={StaticResource BoolVis}}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="2. 자동운전" Style="{StaticResource ColHeader}"/>
+                                <TextBlock Grid.Row="0" Text="자동운전" Style="{StaticResource ColHeader}"/>
                                 <StackPanel Grid.Row="1">
-                                    <!-- mode toggle + 판넬 선택 -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
-                                        <Border Background="#F0F2F6" CornerRadius="9" Padding="3">
-                                            <StackPanel Orientation="Horizontal">
-                                                <ToggleButton Style="{StaticResource Seg}" Content="개별"
-                                                              IsChecked="{Binding IsIndividual, Mode=OneWay}"
-                                                              Command="{Binding SetAutoIndividualCommand}"/>
-                                                <ToggleButton Style="{StaticResource Seg}" Content="전력·역률"
-                                                              IsChecked="{Binding IsPowerPf, Mode=OneWay}"
-                                                              Command="{Binding SetAutoPowerPfCommand}"/>
-                                            </StackPanel>
-                                        </Border>
-                                        <!-- 판넬 선택: 바인딩 없음 — code-behind에서 Items를 직접 관리.
-                                             WPF 바인딩 경로를 완전히 차단해 TargetException을 근본 제거. -->
-                                        <ComboBox x:Name="PanelComboBox"
-                                                  SelectionChanged="PanelComboBox_SelectionChanged"
-                                                  MinWidth="120" Margin="8,0,0,0" Height="28"
-                                                  VerticalAlignment="Center" VerticalContentAlignment="Center"
-                                                  FontSize="11"/>
-                                    </StackPanel>
+                                    <!-- mode toggle -->
+                                    <Border Background="#F0F2F6" CornerRadius="9" Padding="3" Margin="0,0,0,6"
+                                            HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ToggleButton Style="{StaticResource Seg}" Content="개별"
+                                                          IsChecked="{Binding IsIndividual, Mode=OneWay}"
+                                                          Command="{Binding SetAutoIndividualCommand}"/>
+                                            <ToggleButton Style="{StaticResource Seg}" Content="전력·역률"
+                                                          IsChecked="{Binding IsPowerPf, Mode=OneWay}"
+                                                          Command="{Binding SetAutoPowerPfCommand}"/>
+                                        </StackPanel>
+                                    </Border>
                                     <!-- individual R/L/C -->
                                     <StackPanel Visibility="{Binding IsIndividual, Converter={StaticResource BoolVis}}">
                                         <Grid Margin="0,0,0,4">
@@ -392,21 +615,22 @@
                                         <CheckBox Content="진상 (C부하 보상)" IsChecked="{Binding LeadingPf}"
                                                   FontSize="11" Margin="0,0,0,6"/>
                                     </StackPanel>
-                                    <!-- 운전 제어 -->
-                                    <Grid>
+                                    <!-- 운전 제어: 3버튼 동일 너비 -->
+                                    <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="▶ 운전 시작" Style="{StaticResource BtnGreen}" Margin="0,10,4,0" Command="{Binding StartAutoCommand}"/>
-                                        <Button Grid.Column="1" Content="■ 운전 정지" Style="{StaticResource BtnGhost}" Margin="4,10,0,0" Command="{Binding StopAutoCommand}"/>
+                                        <Button Grid.Column="0" Content="▶ 시작" Style="{StaticResource BtnGreen}" Margin="0,0,2,0" Command="{Binding StartAutoCommand}"/>
+                                        <Button Grid.Column="1" Content="■ 정지" Style="{StaticResource BtnGhost}" Margin="2,0,2,0" Command="{Binding StopAutoCommand}"/>
+                                        <Button Grid.Column="2" Content="⊗ 종료" Style="{StaticResource BtnRed}" Margin="2,0,0,0" Command="{Binding TerminateAutoCommand}"/>
                                     </Grid>
                                 </StackPanel>
                             </Grid>
                         </Border>
 
-                    </StackPanel>
-                </ScrollViewer>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -438,35 +662,36 @@
                             <TextBlock Text="PNL-3" FontSize="11" Margin="4,0,0,0"/>
                         </StackPanel>
                     </Grid>
-                    <s:SciChartSurface Grid.Row="1" s:ThemeManager.Theme="BrightSpark" Background="Transparent">
+                    <s:SciChartSurface x:Name="PowerTrendChart" Grid.Row="1" s:ThemeManager.Theme="BrightSpark" Background="Transparent"
+                                       MouseDoubleClick="PowerTrendChart_MouseDoubleClick">
                         <s:SciChartSurface.RenderableSeries>
                             <s:FastLineRenderableSeries DataSeries="{Binding Pnl1PowerSeries}" Stroke="#E04F4F" StrokeThickness="2"/>
                             <s:FastLineRenderableSeries DataSeries="{Binding Pnl2PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
                             <s:FastLineRenderableSeries DataSeries="{Binding Pnl3PowerSeries}" Stroke="#4B7BF5" StrokeThickness="2"/>
                         </s:SciChartSurface.RenderableSeries>
                         <s:SciChartSurface.XAxes>
-                            <s:DateTimeAxis MaxAutoTicks="15"
-                                            AutoRange="Never"
-                                            DrawMajorGridLines="True" 
+                            <s:DateTimeAxis x:Name="PowerTrendXAxis"
+                                            MaxAutoTicks="6"
+                                            AutoRange="Always"
+                                            DrawMajorGridLines="False"
                                             DrawMinorGridLines="False"
                                             DrawMajorTicks="False"
                                             DrawMinorTicks="False"
-                                            TextFormatting="HH:mm"
-                                            FontSize="13"
-                                            AxisTitle="Time"
-                                            />
+                                            TextFormatting="HH:mm:ss"
+                                            FontSize="11"
+                                            AxisTitle="Time"/>
                         </s:SciChartSurface.XAxes>
                         <s:SciChartSurface.YAxes>
                             <s:NumericAxis DrawMajorBands="False"
-                                           AutoRange="Always"
+                                           AutoRange="Never"
                                            DrawMajorTicks="False"
                                            DrawMinorTicks="False"
                                            DrawMajorGridLines="True"
                                            DrawMinorGridLines="False"
-                                           GrowBy="0.1, 0.2"
-                                           MaxAutoTicks="5"
+                                           MaxAutoTicks="10"
                                            FontSize="13"
-                                           AxisTitle="kW"/>
+                                           AxisTitle="kW"
+                                           VisibleRange="{Binding PowerYAxisRange, Mode=TwoWay}"/>
                         </s:SciChartSurface.YAxes>
                         <s:SciChartSurface.ChartModifier>
                             <s:ModifierGroup>
@@ -476,12 +701,19 @@
                                 <s:MouseWheelZoomModifier/>
                                 <s:ZoomPanModifier ExecuteOn="MouseLeftButton"/>
                             </s:ModifierGroup>
+                            <!--<s:ModifierGroup>
+                                <s:RolloverModifier DrawVerticalLine="True"
+                                                    ShowTooltipOn="MouseOver"
+                                                    ShowAxisLabels="True"/>
+                                <s:MouseWheelZoomModifier/>
+                                <s:ZoomPanModifier ExecuteOn="MouseLeftButton"/>
+                            </s:ModifierGroup>-->
                         </s:SciChartSurface.ChartModifier>
                     </s:SciChartSurface>
                 </Grid>
             </Border>
 
-            <!-- 3. Trip / Alarm -->
+            <!-- Trip / Alarm -->
             <Border Grid.Column="2" Style="{StaticResource Card}" Margin="6,0,6,0">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -489,14 +721,14 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="3. 트립 / 알람" Style="{StaticResource ColHeader}"/>
+                    <TextBlock Grid.Row="0" Text="트립 / 알람" Style="{StaticResource ColHeader}"/>
                     <DataGrid Grid.Row="1" ItemsSource="{Binding Alarms}" AutoGenerateColumns="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
                               RowHeight="28" FontSize="11.5" Background="Transparent" RowBackground="Transparent"
                               CanUserAddRows="False" HorizontalScrollBarVisibility="Disabled">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="시간" Binding="{Binding TimeText}" Width="110"/>
-                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="50"/>
+                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="80"/>
                             <DataGridTextColumn Header="알람 내용" Binding="{Binding Message}" Width="*">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -508,7 +740,24 @@
                             <DataGridTemplateColumn Header="상태" Width="66">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding Level}" Foreground="Black" FontSize="10" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Level}" FontSize="10" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Trip">
+                                                            <Setter Property="Foreground" Value="#E04F4F"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Alarm">
+                                                            <Setter Property="Foreground" Value="#E8943A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Info">
+                                                            <Setter Property="Foreground" Value="#2F6FE0"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -525,7 +774,7 @@
                 </Grid>
             </Border>
 
-            <!-- 4. History -->
+            <!-- History -->
             <Border Grid.Column="3" Style="{StaticResource Card}" Margin="6,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -533,14 +782,14 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="4. 운전 이력" Style="{StaticResource ColHeader}"/>
+                    <TextBlock Grid.Row="0" Text="운전 이력" Style="{StaticResource ColHeader}"/>
                     <DataGrid Grid.Row="1" ItemsSource="{Binding History}" AutoGenerateColumns="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
                               RowHeight="28" FontSize="11.5" Background="Transparent" RowBackground="Transparent"
                               CanUserAddRows="False" HorizontalScrollBarVisibility="Disabled">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="시간" Binding="{Binding TimeText}" Width="110"/>
-                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="50"/>
+                            <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="80"/>
                             <DataGridTextColumn Header="이벤트 내용" Binding="{Binding Event}" Width="*">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -552,7 +801,21 @@
                             <DataGridTemplateColumn Header="결과" Width="80">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding Result}" Foreground="#27A86A" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Result}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Result}" Value="성공">
+                                                            <Setter Property="Foreground" Value="#27A86A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Result}" Value="실패">
+                                                            <Setter Property="Foreground" Value="#E04F4F"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>

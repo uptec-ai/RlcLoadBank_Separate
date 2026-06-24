@@ -1,8 +1,9 @@
+using RLC_LoadBank_SeparateVer.ViewModels;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using RLC_LoadBank_SeparateVer.ViewModels;
+using System.Windows.Input;
 
 namespace RLC_LoadBank_SeparateVer.Views
 {
@@ -11,7 +12,7 @@ namespace RLC_LoadBank_SeparateVer.Views
         // ComboBox 항목을 프로그래밍으로 설정하는 중 SelectionChanged가 VM에 다시 쓰지 않도록 차단.
         private bool _settingSelection;
         private RlcStatusViewModel _vm;
-
+        private bool _isPowerTrendUserNavigating;
         public RlcStatusView()
         {
             InitializeComponent();
@@ -82,6 +83,20 @@ namespace RLC_LoadBank_SeparateVer.Views
         {
             if (_settingSelection || _vm == null) return;
             _vm.SelectedAutoPanel = (PanelComboBox.SelectedItem as ComboBoxItem)?.Tag as PanelViewModel;
+        }
+
+        private void PowerTrendChart_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            _isPowerTrendUserNavigating = false;
+            ResetPowerTrendChartRange();
+            e.Handled = true;
+        }
+
+        private void ResetPowerTrendChartRange()
+        {
+            // X axis uses AutoRange="Always" — scrolls automatically.
+            // ZoomExtents resets any manual Y-axis pan the user may have applied.
+            PowerTrendChart.ZoomExtents();
         }
     }
 }

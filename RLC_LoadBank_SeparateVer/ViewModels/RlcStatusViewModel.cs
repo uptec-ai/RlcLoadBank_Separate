@@ -10,6 +10,7 @@ using SciChart.Charting.Model.DataSeries;
 using RLC_LoadBank_SeparateVer.Models;
 using RLC_LoadBank_SeparateVer.Services;
 using System.Reflection;
+using SciChart.Data.Model;
 
 namespace RLC_LoadBank_SeparateVer.ViewModels
 {
@@ -67,6 +68,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public double TargetPower { get => GetValue<double>(); set => SetValue(value, RefreshPreview); }   // kW
         public double TargetPf { get => GetValue<double>(); set => SetValue(value, RefreshPreview); }       // 0..1
         public bool LeadingPf { get => GetValue<bool>(); set => SetValue(value, RefreshPreview); }          // true=진상(C), false=지상(L)
+        
 
         // 판넬 선택 (null = 연결된 모든 판넬)
         // ObservableCollection 대신 배열 프로퍼티: Clear()→CollectionChanged(Reset) 경로를 없애
@@ -97,6 +99,28 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public XyDataSeries<DateTime, double> Pnl2PowerSeries { get; }
         public XyDataSeries<DateTime, double> Pnl3PowerSeries { get; }
 
+        // Y-axis visible range — expands when data exceeds current max, never shrinks below -1..10
+        public DoubleRange PowerYAxisRange
+        {
+            get => GetProperty(() => PowerYAxisRange);
+            set => SetProperty(() => PowerYAxisRange, value);
+        }
+
+        // ── RLC operational state (computed from MC feedback states) ──────────
+        // True when any connected panel has at least one MC confirmed ON via FB.
+        public bool IsRlcOn    => Panels.Any(p => p.IsConnected && p.AllMcs.Any(m => m.State == McState.On));
+        // True while any Modbus write is pending PLC confirmation (COMM WAIT).
+        public bool IsCommWait => Panels.Any(p => p.AllMcs.Any(m => m.State == McState.CommWait));
+        // True only after an explicit manual/stop OFF action — cleared on next ON or disconnect.
+        private bool _rlcOffSignaled;
+        public bool IsRlcOff   => PlcCommOk && _rlcOffSignaled && !IsRlcOn;
+        // True while any unacknowledged Trip alarm exists.
+        public bool HasTrip    => Alarms.Any(a => a.Level == AlarmLevel.Trip  && !a.Acknowledged);
+        // True while any unacknowledged Alarm (non-Trip) exists.
+        public bool HasAlarm   => Alarms.Any(a => a.Level == AlarmLevel.Alarm && !a.Acknowledged);
+        // Operation gate: PLC connected AND no unacknowledged alarms.
+        public bool CanOperate => PlcCommOk && UnackCount == 0;
+
         public DelegateCommand SetAutoCommand { get; }
         public DelegateCommand SetManualCommand { get; }
         public DelegateCommand<string> LoadOnCommand { get; }
@@ -107,6 +131,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public DelegateCommand ResetCommand { get; }
         public DelegateCommand StartAutoCommand { get; }
         public DelegateCommand StopAutoCommand { get; }
+        public DelegateCommand TerminateAutoCommand { get; }
         public DelegateCommand AckAlarmsCommand { get; }
         public DelegateCommand OpenConnectionCommand { get; }
         public DelegateCommand SetAutoIndividualCommand { get; }
@@ -122,6 +147,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             Pnl1PowerSeries = new XyDataSeries<DateTime, double> { SeriesName = "PNL-1 (kW)", FifoCapacity = 300 };
             Pnl2PowerSeries = new XyDataSeries<DateTime, double> { SeriesName = "PNL-2 (kW)", FifoCapacity = 300 };
             Pnl3PowerSeries = new XyDataSeries<DateTime, double> { SeriesName = "PNL-3 (kW)", FifoCapacity = 300 };
+            PowerYAxisRange = new DoubleRange(-1, 10);
 
             EStopOk = true; AlarmWait = false; HeartbeatOk = true;
             // 초기값 세팅: RefreshPreview는 Mode = Auto 할당 시 호출되므로 여기서는 raw SetValue 없음.
@@ -141,24 +167,27 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             bool anyConnected = PlcCommOk;
             SetAutoCommand   = new DelegateCommand(() => Mode = OperationMode.Auto);
             SetManualCommand = new DelegateCommand(() => Mode = OperationMode.Manual);
-            LoadOnCommand  = new DelegateCommand<string>(t => ManualLoad(t, true),  _ => PlcCommOk);
-            LoadOffCommand = new DelegateCommand<string>(t => ManualLoad(t, false), _ => PlcCommOk);
-            MccbOnCommand  = new DelegateCommand(() => Mccb("ON"),   () => PlcCommOk);
-            MccbOffCommand = new DelegateCommand(() => Mccb("OFF"),  () => PlcCommOk);
-            MccbTripCommand= new DelegateCommand(() => Mccb("TRIP"), () => PlcCommOk);
-            ResetCommand   = new DelegateCommand(ResetAll, () => PlcCommOk);
-            StartAutoCommand = new DelegateCommand(StartAuto,  () => PlcCommOk && IsAuto);
-            StopAutoCommand  = new DelegateCommand(StopAuto, () => PlcCommOk);
+            LoadOnCommand  = new DelegateCommand<string>(t => ManualLoad(t, true),  _ => CanOperate);
+            LoadOffCommand = new DelegateCommand<string>(t => ManualLoad(t, false), _ => CanOperate);
+            MccbOnCommand  = new DelegateCommand(() => Mccb("ON"),   () => CanOperate);
+            MccbOffCommand = new DelegateCommand(() => Mccb("OFF"),  () => CanOperate);
+            MccbTripCommand= new DelegateCommand(() => Mccb("TRIP"), () => CanOperate);
+            ResetCommand   = new DelegateCommand(ResetAll, () => CanOperate);
+            StartAutoCommand    = new DelegateCommand(StartAuto,       () => CanOperate && IsAuto);
+            StopAutoCommand     = new DelegateCommand(StopAuto,        () => CanOperate);
+            TerminateAutoCommand= new DelegateCommand(TerminateAuto,   () => CanOperate);
             AckAlarmsCommand = new DelegateCommand(() =>
             {
                 foreach (var a in Alarms) a.Acknowledged = true;
-                RaisePropertyChanged(nameof(UnackCount));
+                RefreshFaultState();
             });
             OpenConnectionCommand  = new DelegateCommand(OpenConnection);
             SetAutoIndividualCommand = new DelegateCommand(() => AutoMode = AutoMode.Individual);
             SetAutoPowerPfCommand    = new DelegateCommand(() => AutoMode = AutoMode.PowerPf);
 
             Mode = OperationMode.Auto;
+
+            ServiceHub.Metering.GimacDataReceived += OnGimacDataReceived;
 
             _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clock.Tick += OnClockTick;
@@ -177,11 +206,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var panel = Panels.FirstOrDefault(p => p.Index == fb.PanelIndex);
             if (panel == null) return;
 
-            // MC / C-sub base tag
             var mc = panel.FindMc(fb.McTag);
-            if (mc != null) { mc.State = fb.On ? McState.On : McState.Off; return; }
+            if (mc != null)
+            {
+                mc.State = fb.On ? McState.On : McState.Off;
+                RefreshRlcState();
+                return;
+            }
 
-            // Status _FB tag → panel status properties + top-bar flags
             if (fb.McTag.EndsWith("_FB", StringComparison.OrdinalIgnoreCase))
             {
                 panel.ApplyStatusFeedback(fb.McTag, fb.On);
@@ -191,31 +223,65 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void RefreshStatusFlags()
         {
-            // E-Stop OK = 어느 판넬도 EMG 동작 중이 아닐 때
-            EStopOk = Panels.All(p => !p.EmgActive);
-            // AlarmWait = 어떤 보호 기능이 동작 중일 때 (OVR/OCR/HT/MCCB_TRIP)
+            EStopOk   = Panels.All(p => !p.EmgActive);
             AlarmWait = Panels.Any(p => p.HasFault);
+            RefreshRlcState();
         }
 
         private void OnClockTick(object sender, EventArgs e)
         {
             Now = DateTime.Now;
-            var t = DateTime.Now;
-            // Push estimated active-power kW for each connected panel
-            var series = new[] { Pnl1PowerSeries, Pnl2PowerSeries, Pnl3PowerSeries };
-            for (int i = 0; i < Panels.Count; i++)
-            {
-                if (!Panels[i].IsConnected) continue;
-                series[i].Append(t, EstimateKw(Panels[i]));
-            }
+            RefreshRlcState();
         }
 
-        private static double EstimateKw(PanelViewModel p)
+        private void OnGimacDataReceived(object sender, GimacReading r)
         {
-            var rMcs = p.RGroups.SelectMany(g => g.Items).ToList();
-            if (rMcs.Count == 0) return 0;
-            int onCount = rMcs.Count(m => m.State == McState.On);
-            return onCount * (105.0 / rMcs.Count);
+            double kw = r.ActivePower / 1000.0;
+            switch (r.Device.UnitId)
+            {
+                case 1: Pnl1PowerSeries.Append(r.Timestamp, kw); break;
+                case 2: Pnl2PowerSeries.Append(r.Timestamp, kw); break;
+                case 3: Pnl3PowerSeries.Append(r.Timestamp, kw); break;
+            }
+            UpdatePowerYAxisRange(kw);
+        }
+
+        private void UpdatePowerYAxisRange(double kw)
+        {
+            const double minTop  = 10.0;
+            const double padding = 0.1;
+            double needed = kw * (1.0 + padding);
+            if (needed > PowerYAxisRange.Max)
+                PowerYAxisRange = new DoubleRange(-1, Math.Max(minTop, needed));
+        }
+
+        private void RefreshRlcState()
+        {
+            RaisePropertyChanged(nameof(IsRlcOn));
+            RaisePropertyChanged(nameof(IsRlcOff));
+            RaisePropertyChanged(nameof(IsCommWait));
+        }
+
+        private void RefreshFaultState()
+        {
+            RaisePropertyChanged(nameof(HasTrip));
+            RaisePropertyChanged(nameof(HasAlarm));
+            RaisePropertyChanged(nameof(UnackCount));
+            RaisePropertyChanged(nameof(CanOperate));
+            RefreshOperationCommands();
+        }
+
+        private void RefreshOperationCommands()
+        {
+            LoadOnCommand?.RaiseCanExecuteChanged();
+            LoadOffCommand?.RaiseCanExecuteChanged();
+            MccbOnCommand?.RaiseCanExecuteChanged();
+            MccbOffCommand?.RaiseCanExecuteChanged();
+            MccbTripCommand?.RaiseCanExecuteChanged();
+            ResetCommand?.RaiseCanExecuteChanged();
+            StartAutoCommand?.RaiseCanExecuteChanged();
+            StopAutoCommand?.RaiseCanExecuteChanged();
+            TerminateAutoCommand?.RaiseCanExecuteChanged();
         }
 
         // ── Connection popup ──────────────────────────────────────────────────
@@ -299,6 +365,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         // ── Manual load control ───────────────────────────────────────────────
 
+        // 선택된 판넬만 반환. null(전체 판넬) → 모든 연결 판넬.
+        private IEnumerable<PanelViewModel> GetTargetPanels() =>
+            SelectedAutoPanel != null
+                ? Panels.Where(p => p.IsConnected && p == SelectedAutoPanel)
+                : Panels.Where(p => p.IsConnected);
+
         private void ManualLoad(string type, bool on)
         {
             if (!IsManual)
@@ -306,18 +378,21 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 DXMessageBox.Show("수동 모드에서만 조작할 수 있습니다.", "안내", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            string act = on ? "ON" : "OFF";
-            if (DXMessageBox.Show($"{type} 부하 전체를 {act} 하시겠습니까?", "부하 제어 확인",
+            string act  = on ? "ON" : "OFF";
+            string target = SelectedAutoPanel?.Title ?? "전체 판넬";
+            if (DXMessageBox.Show($"[{target}] {type} 부하를 {act} 하시겠습니까?", "부하 제어 확인",
                     MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
             _ = on ? ManualLoadOnAsync(type) : ManualLoadOffAsync(type);
         }
 
-        // PNL-1→2→3 순서, PNL-1 R/L은 RN→SN→TN 그룹 순, 각 그룹 1→N 스텝
+        // 선택 판넬(또는 전체) 순차 ON: PNL-1→2→3 순서
         private async System.Threading.Tasks.Task ManualLoadOnAsync(string type)
         {
-            foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
+            _rlcOffSignaled = false;
+            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
+            foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 foreach (var mc in TypeMcsOrdered(p, type, forward: true))
                 {
@@ -326,13 +401,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     await System.Threading.Tasks.Task.Delay(1000);
                 }
             }
-            AddHistory("수동", $"{type} 부하 ON 순차 (PNL1→2→3)", "성공");
+            AddHistory("수동", $"[{panelLabel}] {type} 부하 ON 순차", "성공");
         }
 
-        // PNL-1→2→3 순서, PNL-1 R/L은 TN→SN→RN 그룹 역순, 각 그룹 N→1 스텝
+        // 선택 판넬(또는 전체) 순차 OFF: 역순
         private async System.Threading.Tasks.Task ManualLoadOffAsync(string type)
         {
-            foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
+            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
+            foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 foreach (var mc in TypeMcsOrdered(p, type, forward: false))
                 {
@@ -342,7 +418,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     await System.Threading.Tasks.Task.Delay(1000);
                 }
             }
-            AddHistory("수동", $"{type} 부하 OFF 순차 (역순, PNL1→2→3)", "성공");
+            _rlcOffSignaled = true;
+            RefreshRlcState();
+            AddHistory("수동", $"[{panelLabel}] {type} 부하 OFF 순차 (역순)", "성공");
         }
 
         // 타입별 MC를 정방향/역방향으로 반환
@@ -406,6 +484,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 DXMessageBox.Show("연결된 PLC가 없습니다.", "자동운전", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            _rlcOffSignaled = false;
             var targets = ComputeTargets();
             var steps = BuildAutoSteps();
             var plan = ServiceHub.Auto.Start(targets, steps);
@@ -535,7 +614,48 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     }
                 }
             }
+            _rlcOffSignaled = true;
+            RefreshRlcState();
             AddHistory(panel, $"{eventLabel} (C→L→R 역순, PNL1→2→3)", "성공");
+        }
+
+        // 선택 판넬(또는 전체)의 현재 ON MC를 C→L→R 역순으로 1초 간격 OFF
+        private void TerminateAuto()
+        {
+            var targets = GetTargetPanels().ToList();
+            bool anyOn = targets.Any(p => p.AllMcs.Any(m => m.State == McState.On));
+            if (!anyOn)
+            {
+                string panelName = SelectedAutoPanel?.Title ?? "전체 판넬";
+                DXMessageBox.Show($"{panelName}에 켜진 MC가 없습니다.", "운전 종료",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            ServiceHub.Auto.Stop();
+            _ = TerminateAsync(targets);
+        }
+
+        private async System.Threading.Tasks.Task TerminateAsync(IEnumerable<PanelViewModel> panels)
+        {
+            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
+            foreach (var p in panels.OrderBy(p => p.Index))
+            {
+                foreach (var typeName in new[] { "C", "L", "R" })
+                {
+                    foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
+                    {
+                        if (mc.State == McState.Off) continue;
+                        if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, false); continue; }
+                        mc.State = McState.CommWait;
+                        ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
+                        await System.Threading.Tasks.Task.Delay(1000);
+                    }
+                }
+            }
+            _rlcOffSignaled = true;
+            RefreshRlcState();
+            ClearPreview();
+            AddHistory(panelLabel, "운전 종료 (C→L→R 역순)", "성공");
         }
 
         // ── State refresh ─────────────────────────────────────────────────────
@@ -545,14 +665,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             for (int i = 0; i < Panels.Count; i++)
                 Panels[i].IsConnected = ServiceHub.Plc.IsConnected(i);
             RaisePropertyChanged(nameof(PlcCommOk));
-            LoadOnCommand.RaiseCanExecuteChanged();
-            LoadOffCommand.RaiseCanExecuteChanged();
-            MccbOnCommand.RaiseCanExecuteChanged();
-            MccbOffCommand.RaiseCanExecuteChanged();
-            MccbTripCommand.RaiseCanExecuteChanged();
-            ResetCommand.RaiseCanExecuteChanged();
-            StartAutoCommand.RaiseCanExecuteChanged();
-            StopAutoCommand.RaiseCanExecuteChanged();
+            RaisePropertyChanged(nameof(CanOperate));
+            RefreshRlcState();
+            RefreshOperationCommands();
 
             var newPanels = Panels.Where(p => p.IsConnected).ToArray();
             var saved = SelectedAutoPanel;
@@ -600,27 +715,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         private void AddAlarm(string panel, string msg, AlarmLevel level)
         {
             Alarms.Insert(0, new AlarmEntry { Time = DateTime.Now, Panel = panel, Message = msg, Level = level });
-            RaisePropertyChanged(nameof(UnackCount));
+            RefreshFaultState();
         }
 
-        private void SeedLogs()
-        {
-            var t = DateTime.Now;
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-24), Panel = "PNL-M", Message = "MCCB-M Trip 발생", Level = AlarmLevel.Trip });
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-70), Panel = "PLC2", Message = "PLC 통신 지연 (500ms 초과)", Level = AlarmLevel.Alarm });
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-163), Panel = "PLC1", Message = "C 부하 시퀀스 타임아웃", Level = AlarmLevel.Alarm });
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-207), Panel = "PNL-3", Message = "원격모드 해제 (로컬 전환)", Level = AlarmLevel.Info });
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-263), Panel = "PLC3", Message = "E-Stop 입력 감지", Level = AlarmLevel.Trip });
-            Alarms.Add(new AlarmEntry { Time = t.AddSeconds(-297), Panel = "PNL-2", Message = "보호계전기 알람", Level = AlarmLevel.Alarm });
-
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-95),  Panel = "자동", Event = "자동운전 시작",   Result = "성공" });
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-194), Panel = "PLC2", Event = "R 부하 4단 ON",   Result = "성공" });
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-195), Panel = "PLC2", Event = "L 부하 2단 ON",   Result = "성공" });
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-209), Panel = "PLC1", Event = "C 부하 1단 ON",   Result = "성공" });
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-284), Panel = "수동", Event = "MCCB ON",         Result = "성공" });
-            History.Add(new HistoryEntry { Time = t.AddSeconds(-297), Panel = "PLC3", Event = "원격모드 설정",   Result = "성공" });
-            foreach (var h in History) ServiceHub.History.Add(h);
-            RaisePropertyChanged(nameof(UnackCount));
-        }
+        private void SeedLogs() { }
     }
 }

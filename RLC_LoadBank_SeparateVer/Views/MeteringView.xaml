@@ -70,22 +70,79 @@
             </Grid>
         </Border>
 
-        <!-- live trend -->
+        <!-- live power trend -->
         <Border Grid.Row="3" Style="{StaticResource Card}">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="실시간 트렌드 (전압 / 전류 / 유효전력)" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+
+                <!-- header: title + GIMAC connection status per panel -->
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <TextBlock Text="실시간 전력 트렌드 (유효전력 kW)" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+
+                        <!-- PNL-1 legend + GIMAC01 연결 상태 -->
+                        <Rectangle Width="18" Height="3" Fill="#2F6FE0" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-1" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,14,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#BBBBBB"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Pnl1GimacConnected}" Value="True">
+                                            <Setter Property="Fill" Value="#27A86A"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+
+                        <!-- PNL-2 legend + GIMAC02 연결 상태 -->
+                        <Rectangle Width="18" Height="3" Fill="#E8943A" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-2" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,14,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#BBBBBB"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Pnl2GimacConnected}" Value="True">
+                                            <Setter Property="Fill" Value="#27A86A"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+
+                        <!-- PNL-3 legend + GIMAC03 연결 상태 -->
+                        <Rectangle Width="18" Height="3" Fill="#27A86A" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-3" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,0,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#BBBBBB"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Pnl3GimacConnected}" Value="True">
+                                            <Setter Property="Fill" Value="#27A86A"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                    </StackPanel>
+                </Grid>
+
+                <!-- SciChart: 3 panel ActivePower series -->
                 <s:SciChartSurface Grid.Row="1">
                     <s:SciChartSurface.RenderableSeries>
-                        <s:FastLineRenderableSeries DataSeries="{Binding VoltageSeries}" Stroke="#2F6FE0" StrokeThickness="2"/>
-                        <s:FastLineRenderableSeries DataSeries="{Binding CurrentSeries}" Stroke="#E8943A" StrokeThickness="2"/>
-                        <s:FastLineRenderableSeries DataSeries="{Binding PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl1PowerSeries}" Stroke="#2F6FE0" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl2PowerSeries}" Stroke="#E8943A" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl3PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
                     </s:SciChartSurface.RenderableSeries>
                     <s:SciChartSurface.XAxes>
                         <s:DateTimeAxis DrawMajorGridLines="True" DrawMinorGridLines="False"/>
                     </s:SciChartSurface.XAxes>
                     <s:SciChartSurface.YAxes>
-                        <s:NumericAxis AutoRange="Always"/>
+                        <s:NumericAxis AutoRange="Never" AxisTitle="kW"
+                                       VisibleRange="{Binding PowerYAxisRange, Mode=TwoWay}"/>
                     </s:SciChartSurface.YAxes>
                 </s:SciChartSurface>
             </Grid>
