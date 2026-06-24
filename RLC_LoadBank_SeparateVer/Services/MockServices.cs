@@ -156,9 +156,11 @@ namespace RLC_LoadBank_SeparateVer.Services
                 : new MockDeviceConnectionService();
 
         // ServiceHub.Auto       => 자동운전 계획 (AutoOperationService)
-        public static IAutoOperationService Auto  { get; } = new AutoOperationService();
+        public static IAutoOperationService Auto     { get; } = new AutoOperationService();
         // ServiceHub.CLoad      => C부하 시퀀스 (CLoadSequencer)
-        public static ICLoadSequencer       CLoad { get; } = new CLoadSequencer();
+        public static ICLoadSequencer       CLoad    { get; } = new CLoadSequencer();
+        // ServiceHub.Metering   => ISEM/GIMAC 계측기 TCP 연결 + 500ms 폴링 (창 닫아도 유지)
+        public static IMeteringService      Metering { get; } = new MeteringService();
 
         public static bool   UseDatabase      = false;
         public static string ConnectionString =

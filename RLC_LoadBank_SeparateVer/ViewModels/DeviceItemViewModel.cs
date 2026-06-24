@@ -44,11 +44,13 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public bool IsConnected => State == ConnState.Connected;
         public string StatusText => State switch
         {
-            ConnState.Connected => "연결됨",
-            ConnState.Connecting => "연결 중",
-            ConnState.Error => "오류",
+            ConnState.Connected    => "연결됨",
+            ConnState.Connecting   => "연결 중",
+            ConnState.Error        => "오류",
             ConnState.Disconnected => "해제됨",
-            _ => "Disabled",
+            ConnState.Idle         => "연결 가능",
+            ConnState.Disabled     => "사용 안 함",
+            _                      => "-",
         };
 
         public DateTime? LastSeen

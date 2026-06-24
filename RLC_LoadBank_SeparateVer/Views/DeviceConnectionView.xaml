@@ -189,7 +189,8 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource Card}" Padding="6" Margin="0,0,8,0">
-                <TabControl BorderThickness="0" Background="Transparent">
+                <TabControl BorderThickness="0" Background="Transparent"
+                            SelectedIndex="{Binding ActiveTab, Mode=TwoWay}">
                     <TabItem Header="PLC" Width="60">
                         <TabItem.Style>
                             <Style TargetType="TabItem">
@@ -204,7 +205,14 @@
                         </TabItem.Style>
                         <dxg:GridControl ItemsSource="{Binding Plcs}" SelectedItem="{Binding SelectedDevice}" AutoGenerateColumns="None" ShowBorder="True">
                             <dxg:GridControl.Columns>
-                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46"/>
+                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46" AllowEditing="False">
+                                    <dxg:GridColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding RowData.Row.Use, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </dxg:GridColumn.CellTemplate>
+                                </dxg:GridColumn>
                                 <dxg:GridColumn FieldName="Type" Header="Type" ReadOnly="True" Width="60"/>
                                 <dxg:GridColumn FieldName="Name" Header="이름" Width="130"/>
                                 <dxg:GridColumn FieldName="Ip" Header="IP 주소" Width="120"/>
@@ -226,7 +234,14 @@
                     <TabItem Header="ISEM">
                         <dxg:GridControl ItemsSource="{Binding Isems}" SelectedItem="{Binding SelectedDevice}" AutoGenerateColumns="None">
                             <dxg:GridControl.Columns>
-                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46"/>
+                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46" AllowEditing="False">
+                                    <dxg:GridColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding RowData.Row.Use, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </dxg:GridColumn.CellTemplate>
+                                </dxg:GridColumn>
                                 <dxg:GridColumn FieldName="Type" Header="Type" ReadOnly="True" Width="60"/>
                                 <dxg:GridColumn FieldName="Name" Header="이름" Width="150"/>
                                 <dxg:GridColumn FieldName="Ip" Header="IP 주소" Width="120"/>
@@ -247,7 +262,14 @@
                     <TabItem Header="GIMAC">
                         <dxg:GridControl ItemsSource="{Binding Gimacs}" SelectedItem="{Binding SelectedDevice}" AutoGenerateColumns="None">
                             <dxg:GridControl.Columns>
-                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46"/>
+                                <dxg:GridColumn FieldName="Use" Header="Use" Width="46" AllowEditing="False">
+                                    <dxg:GridColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding RowData.Row.Use, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </dxg:GridColumn.CellTemplate>
+                                </dxg:GridColumn>
                                 <dxg:GridColumn FieldName="Type" Header="Type" ReadOnly="True" Width="60"/>
                                 <dxg:GridColumn FieldName="Name" Header="이름" Width="150"/>
                                 <dxg:GridColumn FieldName="Ip" Header="IP 주소" Width="120"/>

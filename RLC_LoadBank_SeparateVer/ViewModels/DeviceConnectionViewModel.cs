@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using DevExpress.Mvvm;
 using DevExpress.Xpf.Core;
@@ -13,10 +15,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
     /// <summary>
     /// "장비 연결 설정" popup.
     ///
-    /// PLC 연결/해제는 ServiceHub.Plc (ModbusPlcService) 에 위임하여
-    /// 대시보드와 같은 소켓을 공유한다.
-    /// ISEM / GIMAC 은 TCP probe (IDeviceConnectionService) 로 처리한다.
-    /// Server tab은 placeholder (기능 off).
+    /// PLC  : ServiceHub.Plc (ModbusPlcService) — 대시보드와 동일 소켓 공유.
+    /// ISEM / GIMAC : ServiceHub.Metering (MeteringService) — 창 닫아도 연결 유지,
+    ///                500ms 폴링 스레드 실행 중.
+    /// Server tab   : placeholder (기능 off).
     /// </summary>
     public class DeviceConnectionViewModel : ViewModelBase
     {
@@ -32,6 +34,17 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         }
         public bool HasSelection => SelectedDevice != null;
 
+        // 0=PLC, 1=ISEM, 2=GIMAC, 3=Server — bound to TabControl.SelectedIndex
+        public int ActiveTab
+        {
+            get => GetValue<int>();
+            set => SetValue(value, () =>
+            {
+                ConnectSelectedCommand?.RaiseCanExecuteChanged();
+                DisconnectSelectedCommand?.RaiseCanExecuteChanged();
+            });
+        }
+
         // Monitoring server (placeholder)
         public string ServerIp      { get => GetValue<string>(); set => SetValue(value); }
         public int    ServerPort    { get => GetValue<int>();    set => SetValue(value); }
@@ -40,13 +53,13 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public string ServerClients   => "0/16";
 
         // Top summary
-        public string PlcSummary       => $"{Plcs.Count(d => d.IsConnected)}/{Plcs.Count} 연결됨";
-        public int    IsemConnected    => Isems.Count(d => d.IsConnected);
-        public int    IsemDisconnected => Isems.Count - IsemConnected;
-        public int    IsemTotal        => Isems.Count;
-        public int    GimacConnected   => Gimacs.Count(d => d.IsConnected);
-        public int    GimacDisconnected=> Gimacs.Count - GimacConnected;
-        public int    GimacTotal       => Gimacs.Count;
+        public string PlcSummary        => $"{Plcs.Count(d => d.IsConnected)}/{Plcs.Count} 연결됨";
+        public int    IsemConnected     => Isems.Count(d => d.IsConnected);
+        public int    IsemDisconnected  => Isems.Count - IsemConnected;
+        public int    IsemTotal         => Isems.Count;
+        public int    GimacConnected    => Gimacs.Count(d => d.IsConnected);
+        public int    GimacDisconnected => Gimacs.Count - GimacConnected;
+        public int    GimacTotal        => Gimacs.Count;
 
         public event EventHandler RequestClose;
 
@@ -62,7 +75,6 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         public DeviceConnectionViewModel()
         {
-            // Load device list from app.config
             foreach (var r in ServiceHub.Devices.LoadDevices())
             {
                 var vm = new DeviceItemViewModel(r);
@@ -75,9 +87,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 }
             }
 
-            // Sync PLC row states with the actual Plc service connection state
+            // Sync UI states from the persistent services (survives window close/reopen)
             SyncPlcStates();
-            ServiceHub.Plc.ConnectionChanged += OnPlcConnectionChanged;
+            SyncMeteringStates();
+            ServiceHub.Plc.ConnectionChanged      += OnPlcConnectionChanged;
+            ServiceHub.Metering.ConnectionChanged += OnMeteringConnectionChanged;
+            _ = ProbeUnconnectedAsync();
 
             ServerIp = "127.0.0.1"; ServerPort = 7000; ServerRunning = true;
 
@@ -94,9 +109,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             DisconnectDeviceCommand = new DelegateCommand<DeviceItemViewModel>(DisconnectOne);
 
             SelectedDevice = Plcs.FirstOrDefault();
+
+            // Issue fix: Use 체크박스 변경 → CanExecuteChanged 즉시 발생
+            WireUseChangedEvents();
         }
 
-        // ── PLC connection sync ───────────────────────────────────────────────
+        // ── State sync from persistent services ──────────────────────────────
 
         private void SyncPlcStates()
         {
@@ -109,13 +127,57 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             RefreshSummary();
         }
 
-        // Called on UI thread by ModbusPlcService.RaiseConn()
+        // ISEM/GIMAC: read connection state from MeteringService singleton
+        private void SyncMeteringStates()
+        {
+            foreach (var d in Isems.Concat(Gimacs))
+            {
+                bool connected = ServiceHub.Metering.IsConnected(d.Ip, d.Port, d.UnitId);
+                d.State = connected ? ConnState.Connected : ConnState.Disconnected;
+                if (connected) d.LastSeen = DateTime.Now;
+            }
+            RefreshSummary();
+        }
+
+        // Background TCP probe for non-connected devices → set Idle if port is open
+        private async Task ProbeUnconnectedAsync()
+        {
+            var targets = Plcs.Cast<DeviceItemViewModel>()
+                              .Concat(Isems)
+                              .Concat(Gimacs)
+                              .Where(d => d.State != ConnState.Connected)
+                              .ToList();
+
+            await Task.WhenAll(targets.Select(d => Task.Run(() =>
+            {
+                bool ok = ServiceHub.Devices.TestConnection(d.ToRecord(), out _);
+                Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    if (d.State != ConnState.Connected)
+                        d.State = ok ? ConnState.Idle : ConnState.Disconnected;
+                });
+            })));
+        }
+
+        // ── Connection event handlers ─────────────────────────────────────────
+
         private void OnPlcConnectionChanged(object sender, int panelIndex)
         {
             if (panelIndex < 0 || panelIndex >= Plcs.Count) return;
             bool connected = ServiceHub.Plc.IsConnected(panelIndex);
             Plcs[panelIndex].State = connected ? ConnState.Connected : ConnState.Disconnected;
             if (connected) Plcs[panelIndex].LastSeen = DateTime.Now;
+            RefreshSummary();
+        }
+
+        private void OnMeteringConnectionChanged(object sender, DeviceRecord record)
+        {
+            var target = Isems.Concat(Gimacs).FirstOrDefault(
+                d => d.Ip == record.Ip && d.Port == record.Port && d.UnitId == record.UnitId);
+            if (target == null) return;
+            bool connected = ServiceHub.Metering.IsConnected(record.Ip, record.Port, record.UnitId);
+            target.State = connected ? ConnState.Connected : ConnState.Disconnected;
+            if (connected) target.LastSeen = DateTime.Now;
             RefreshSummary();
         }
 
@@ -129,21 +191,43 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             RaisePropertyChanged(nameof(HasSelection));
         }
 
-        // ── Batch operations (Use=true) ───────────────────────────────────────
+        // Use 체크박스가 바뀔 때마다 선택 장비 연결/해제 버튼 CanExecute 재평가
+        private void WireUseChangedEvents()
+        {
+            foreach (var d in Plcs.Concat(Isems).Concat(Gimacs))
+                d.PropertyChanged += OnDeviceUseChanged;
+        }
+
+        private void OnDeviceUseChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(DeviceItemViewModel.Use)) return;
+            ConnectSelectedCommand?.RaiseCanExecuteChanged();
+            DisconnectSelectedCommand?.RaiseCanExecuteChanged();
+        }
+
+        // ── Batch operations (active tab only) ────────────────────────────────
 
         private IEnumerable<DeviceItemViewModel> AllDevices => Plcs.Concat(Isems).Concat(Gimacs);
 
-        private bool HasChecked() => AllDevices.Any(d => d.Use);
+        private IEnumerable<DeviceItemViewModel> ActiveTabDevices => ActiveTab switch
+        {
+            0 => Plcs,
+            1 => Isems,
+            2 => Gimacs,
+            _ => Enumerable.Empty<DeviceItemViewModel>()
+        };
+
+        private bool HasChecked() => ActiveTabDevices.Any(d => d.Use);
 
         private void ConnectChecked()
         {
-            foreach (var d in AllDevices.Where(d => d.Use).ToList())
+            foreach (var d in ActiveTabDevices.Where(d => d.Use).ToList())
                 ConnectOne(d);
         }
 
         private void DisconnectChecked()
         {
-            foreach (var d in AllDevices.Where(d => d.Use).ToList())
+            foreach (var d in ActiveTabDevices.Where(d => d.Use).ToList())
                 DisconnectOne(d);
         }
 
@@ -158,19 +242,16 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 int idx = Plcs.IndexOf(d);
                 if (idx >= 0)
                 {
-                    // Bridge to the shared PlcService — same socket as the dashboard
                     d.State = ConnState.Connecting;
-                    ServiceHub.Plc.Connect(idx);   // async; result arrives via ConnectionChanged
+                    ServiceHub.Plc.Connect(idx);   // async; result via OnPlcConnectionChanged
                 }
                 return;
             }
 
-            // ISEM / GIMAC: TCP probe via DeviceConnectionService
-            var rec = d.ToRecord();
-            ServiceHub.Devices.Connect(rec);
-            d.State = rec.State;
-            if (d.IsConnected) d.LastSeen = DateTime.Now;
-            RefreshSummary();
+            // ISEM / GIMAC: persistent TCP via MeteringService
+            // async connect → 500ms poll loop → ConnectionChanged fires on success/fail
+            d.State = ConnState.Connecting;
+            ServiceHub.Metering.Connect(d.ToRecord());
         }
 
         private void DisconnectOne(DeviceItemViewModel d)
@@ -180,13 +261,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             if (d.Type == DeviceType.PLC)
             {
                 int idx = Plcs.IndexOf(d);
-                if (idx >= 0) ServiceHub.Plc.Disconnect(idx);  // triggers ConnectionChanged
+                if (idx >= 0) ServiceHub.Plc.Disconnect(idx);  // triggers OnPlcConnectionChanged
                 return;
             }
 
-            ServiceHub.Devices.Disconnect(d.ToRecord());
-            d.State = ConnState.Disconnected;
-            RefreshSummary();
+            // ISEM / GIMAC: stop polling + close TCP
+            ServiceHub.Metering.Disconnect(d.ToRecord());  // triggers OnMeteringConnectionChanged
         }
 
         private void TestSelected()
@@ -211,12 +291,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void Save()
         {
-            // 1. Persist to app.config
             var all = Plcs.Concat(Isems).Concat(Gimacs).Concat(Servers).Select(d => d.ToRecord());
             ServiceHub.Devices.SaveDevices(all);
 
-            // 2. Rebuild ModbusPlcService with the new config so the next Connect()
-            //    uses the updated IP/Port. Disconnect active panels first to avoid leaks.
             ServiceHub.Plc.ConnectionChanged -= OnPlcConnectionChanged;
             for (int i = 0; i < Plcs.Count; i++)
                 ServiceHub.Plc.Disconnect(i);
@@ -230,7 +307,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void Close()
         {
-            ServiceHub.Plc.ConnectionChanged -= OnPlcConnectionChanged;
+            ServiceHub.Plc.ConnectionChanged      -= OnPlcConnectionChanged;
+            ServiceHub.Metering.ConnectionChanged -= OnMeteringConnectionChanged;
+            // MeteringService 자체는 닫지 않음 — 연결은 ServiceHub 싱글턴으로 유지
             RequestClose?.Invoke(this, EventArgs.Empty);
         }
 

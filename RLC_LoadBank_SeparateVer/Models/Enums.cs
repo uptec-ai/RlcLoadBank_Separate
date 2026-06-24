@@ -16,7 +16,8 @@ namespace RLC_LoadBank_SeparateVer.Models
         Connecting,
         Connected,
         Disabled,
-        Error
+        Error,
+        Idle        // loaded from config, no connection attempt yet this session
     }
 
     /// <summary>Visual/operational state of a single MC (matches the diagram legend).</summary>
