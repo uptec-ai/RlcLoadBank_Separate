@@ -18,6 +18,17 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public double Value { get; set; }
         public LoadType Load { get; set; }
 
+        /// <summary>Formatted capacity label shown below the MC ellipse (e.g. "5kW", "2.5kvar").</summary>
+        public string ValueText
+        {
+            get
+            {
+                if (Value == 0) return "";
+                string unit = Load == LoadType.R ? "kW" : "kvar";
+                return $"{Value:0.#}{unit}";
+            }
+        }
+
         public McState State
         {
             get => GetValue<McState>();

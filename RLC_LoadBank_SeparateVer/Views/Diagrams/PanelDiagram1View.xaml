@@ -22,11 +22,11 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- AC source + MCCB + feeders -->
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Padding="12,10" Background="#FBFCFE">
+                <StackPanel Grid.Column="0" VerticalAlignment="Top" Margin="0,0,7,0">
+                    <TextBlock Text="3P4W / 380V / 60Hz" FontSize="10" Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Margin="0,1,0,6"/>
+                    <Border BorderBrush="{StaticResource CardBorder}" Width="100" BorderThickness="1" CornerRadius="8" Padding="12,10" Background="#FBFCFE">
                         <StackPanel HorizontalAlignment="Center">
                             <TextBlock Text="AC SOURCE" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center"/>
-                            <TextBlock Text="3P4W / 380V / 60Hz" FontSize="10" Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Margin="0,1,0,6"/>
                             <Grid Width="48" Height="48">
                                 <Ellipse Stroke="{StaticResource SubInkBrush}" StrokeThickness="1.5"/>
                                 <TextBlock Text="~" FontSize="31" HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="{StaticResource SubInkBrush}"/>
@@ -44,9 +44,9 @@
                         </StackPanel>
                     </Border>
                     <StackPanel Margin="0,8,0,0">
-                        <TextBlock Text="R-N  L1" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
-                        <TextBlock Text="S-N  L2" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
-                        <TextBlock Text="T-N  L3" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
+                        <TextBlock Text="R-N  L1" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="10,2,0,0"/>
+                        <TextBlock Text="S-N  L2" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="10,2,0,0"/>
+                        <TextBlock Text="T-N  L3" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="10,2,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
