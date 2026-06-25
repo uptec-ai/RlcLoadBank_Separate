@@ -1,4 +1,5 @@
 using RLC_LoadBank_SeparateVer.ViewModels;
+using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -45,6 +46,12 @@ namespace RLC_LoadBank_SeparateVer.Views
             if (e.PropertyName == nameof(RlcStatusViewModel.ConnectedPanels) ||
                 e.PropertyName == nameof(RlcStatusViewModel.SelectedAutoPanel))
                 SyncPanelComboBox();
+
+            if (e.PropertyName == nameof(RlcStatusViewModel.Now) && _isPowerTrendUserNavigating)
+            {
+                var now = DateTime.Now;
+                PowerTrendXAxis.VisibleRange = new SciChart.Data.Model.DateRange(now.AddSeconds(-10), now);
+            }
         }
 
         // ComboBox Items를 직접 재구성. XAML 바인딩 대신 이 메서드 하나가 UI←VM 방향을 담당.
@@ -87,16 +94,21 @@ namespace RLC_LoadBank_SeparateVer.Views
 
         private void PowerTrendChart_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            _isPowerTrendUserNavigating = false;
-            ResetPowerTrendChartRange();
+            //if (!_isPowerTrendUserNavigating)
+            //{
+            //    // 자동 스크롤 모드 → 최근 10초 고정 뷰
+            //    _isPowerTrendUserNavigating = true;
+            //    PowerTrendXAxis.AutoRange = SciChart.Charting.Visuals.Axes.AutoRange.Never;
+                var now = DateTime.Now;
+                PowerTrendXAxis.VisibleRange = new SciChart.Data.Model.DateRange(now.AddSeconds(-60), now);
+            //}
+            //else
+            //{
+                // 10초 고정 뷰 → 자동 스크롤 모드 복귀
+                _isPowerTrendUserNavigating = false;
+                PowerTrendXAxis.AutoRange = SciChart.Charting.Visuals.Axes.AutoRange.Always;
+            //}
             e.Handled = true;
-        }
-
-        private void ResetPowerTrendChartRange()
-        {
-            // X axis uses AutoRange="Always" — scrolls automatically.
-            // ZoomExtents resets any manual Y-axis pan the user may have applied.
-            PowerTrendChart.ZoomExtents();
         }
     }
 }

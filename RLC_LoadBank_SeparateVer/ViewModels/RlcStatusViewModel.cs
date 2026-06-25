@@ -1,6 +1,8 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
@@ -114,6 +116,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         // True only after an explicit manual/stop OFF action — cleared on next ON or disconnect.
         private bool _rlcOffSignaled;
         public bool IsRlcOff   => PlcCommOk && _rlcOffSignaled && !IsRlcOn;
+        // Tracks which protection tags have already fired to prevent repeated triggers per signal.
+        private readonly HashSet<string> _activeProtections = new HashSet<string>();
+        private CancellationTokenSource _seqCts;
+        public bool IsSequenceRunning
+        {
+            get => GetValue<bool>();
+            set => SetValue(value, RefreshOperationCommands);
+        }
         // True while any unacknowledged Trip alarm exists.
         public bool HasTrip    => Alarms.Any(a => a.Level == AlarmLevel.Trip  && !a.Acknowledged);
         // True while any unacknowledged Alarm (non-Trip) exists.
@@ -130,9 +140,11 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public DelegateCommand MccbTripCommand { get; }
         public DelegateCommand ResetCommand { get; }
         public DelegateCommand StartAutoCommand { get; }
-        public DelegateCommand StopAutoCommand { get; }
         public DelegateCommand TerminateAutoCommand { get; }
         public DelegateCommand AckAlarmsCommand { get; }
+        public DelegateCommand ClearAlarmsCommand { get; }
+        public DelegateCommand ClearHistoryCommand { get; }
+        public DelegateCommand AbortSequenceCommand { get; }
         public DelegateCommand OpenConnectionCommand { get; }
         public DelegateCommand SetAutoIndividualCommand { get; }
         public DelegateCommand SetAutoPowerPfCommand { get; }
@@ -174,13 +186,15 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             MccbTripCommand= new DelegateCommand(() => Mccb("TRIP"), () => CanOperate);
             ResetCommand   = new DelegateCommand(ResetAll, () => CanOperate);
             StartAutoCommand    = new DelegateCommand(StartAuto,       () => CanOperate && IsAuto);
-            StopAutoCommand     = new DelegateCommand(StopAuto,        () => CanOperate);
             TerminateAutoCommand= new DelegateCommand(TerminateAuto,   () => CanOperate);
             AckAlarmsCommand = new DelegateCommand(() =>
             {
                 foreach (var a in Alarms) a.Acknowledged = true;
                 RefreshFaultState();
             });
+            ClearAlarmsCommand  = new DelegateCommand(() => { Alarms.Clear(); RefreshFaultState(); });
+            ClearHistoryCommand = new DelegateCommand(() => History.Clear());
+            AbortSequenceCommand = new DelegateCommand(() => _seqCts?.Cancel(), () => IsSequenceRunning);
             OpenConnectionCommand  = new DelegateCommand(OpenConnection);
             SetAutoIndividualCommand = new DelegateCommand(() => AutoMode = AutoMode.Individual);
             SetAutoPowerPfCommand    = new DelegateCommand(() => AutoMode = AutoMode.PowerPf);
@@ -218,7 +232,97 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             {
                 panel.ApplyStatusFeedback(fb.McTag, fb.On);
                 RefreshStatusFlags();
+                OnProtectionFeedback(panel, fb.McTag, fb.On);
             }
+        }
+
+        // ── 보호동작 보조 시퀀스 (spec §5.1) ─────────────────────────────────
+
+        private void OnProtectionFeedback(PanelViewModel panel, string fbTag, bool isOn)
+        {
+            int p = panel.Index + 1;
+            bool isProtTag = fbTag == $"P{p}_EMG_FB"       ||
+                             fbTag == $"P{p}_MCCB_TRIP_FB" ||
+                             fbTag == $"P{p}_OVR_FB"       ||
+                             fbTag == $"P{p}_OCR_FB"       ||
+                             fbTag == $"P{p}_HT_FB";
+            if (!isProtTag) return;
+
+            if (isOn)
+            {
+                if (!_activeProtections.Add(fbTag)) return;  // Rising edge only
+                TriggerProtectionAction(panel, fbTag);
+            }
+            else
+            {
+                _activeProtections.Remove(fbTag);            // Falling edge: reset
+            }
+        }
+
+        private void TriggerProtectionAction(PanelViewModel panel, string fbTag)
+        {
+            _seqCts?.Cancel();
+            int p = panel.Index + 1;
+
+            if (fbTag == $"P{p}_EMG_FB")
+            {
+                AddAlarm("ALL", "비상정지(EMG) 발생 → 전체 부하 자동 차단", AlarmLevel.Trip);
+                ServiceHub.Auto.Stop();
+                _ = EmergencyOffAsync();
+                return;
+            }
+
+            string reason, msg;
+            AlarmLevel level;
+            if      (fbTag == $"P{p}_MCCB_TRIP_FB") { reason = "MCCB TRIP"; msg = "MCCB 트립 발생 → 부하 자동 차단";      level = AlarmLevel.Trip;  }
+            else if (fbTag == $"P{p}_OVR_FB")        { reason = "OVR";       msg = "과전압(OVR) 보호 동작 → 부하 자동 차단"; level = AlarmLevel.Trip;  }
+            else if (fbTag == $"P{p}_OCR_FB")        { reason = "OCR";       msg = "과전류(OCR) 보호 동작 → 부하 자동 차단"; level = AlarmLevel.Trip;  }
+            else if (fbTag == $"P{p}_HT_FB")         { reason = "HT";        msg = "과열(HT) 보호 동작 → 부하 차단";        level = AlarmLevel.Alarm; }
+            else return;
+
+            AddAlarm(panel.Title, msg, level);
+            _ = ProtectionOffAsync(panel, reason);
+        }
+
+        // EMG: 지연 없이 모든 판넬 즉시 차단
+        private System.Threading.Tasks.Task EmergencyOffAsync()
+        {
+            foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
+            {
+                foreach (var typeName in new[] { "C", "L", "R" })
+                {
+                    foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
+                    {
+                        if (mc.State == McState.Off) continue;
+                        mc.State = McState.CommWait;
+                        ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
+                    }
+                }
+            }
+            _rlcOffSignaled = true;
+            RefreshRlcState();
+            ClearPreview();
+            AddHistory("ALL", "EMG-STOP 보호동작 자동 차단 (즉시)", "성공");
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        // 개별 판넬 보호동작: C→L→R 역순, 500ms 간격
+        private async System.Threading.Tasks.Task ProtectionOffAsync(PanelViewModel panel, string reason)
+        {
+            foreach (var typeName in new[] { "C", "L", "R" })
+            {
+                foreach (var mc in TypeMcsOrdered(panel, typeName, forward: false))
+                {
+                    if (mc.State == McState.Off) continue;
+                    mc.State = McState.CommWait;
+                    ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, false);
+                    await System.Threading.Tasks.Task.Delay(500);
+                }
+            }
+            _rlcOffSignaled = true;
+            RefreshRlcState();
+            ClearPreview();
+            AddHistory(panel.Title, $"{reason} 보호동작 자동 차단 (C→L→R 역순)", "성공");
         }
 
         private void RefreshStatusFlags()
@@ -280,8 +384,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             MccbTripCommand?.RaiseCanExecuteChanged();
             ResetCommand?.RaiseCanExecuteChanged();
             StartAutoCommand?.RaiseCanExecuteChanged();
-            StopAutoCommand?.RaiseCanExecuteChanged();
             TerminateAutoCommand?.RaiseCanExecuteChanged();
+            AbortSequenceCommand?.RaiseCanExecuteChanged();
         }
 
         // ── Connection popup ──────────────────────────────────────────────────
@@ -321,6 +425,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             {
                 // 수동: ON/OFF 자유 토글
                 bool turnOn = mc.State != McState.On;
+                if (turnOn && !panel.MccbOn)
+                {
+                    DXMessageBox.Show($"{panel.Title} MCCB가 OFF 상태입니다.\nMCCB를 먼저 투입하세요.", "MC 투입 불가",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
                 string act = turnOn ? "투입(ON)" : "개방(OFF)";
                 if (DXMessageBox.Show($"{panel.Title}  {mc.Label} 을(를) {act} 하시겠습니까?", "MC 조작 확인",
                         MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
@@ -365,6 +475,43 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         // ── Manual load control ───────────────────────────────────────────────
 
+        private CancellationToken BeginSequence()
+        {
+            _seqCts = new CancellationTokenSource();
+            IsSequenceRunning = true;
+            return _seqCts.Token;
+        }
+
+        private void EndSequence()
+        {
+            IsSequenceRunning = false;
+            _seqCts?.Dispose();
+            _seqCts = null;
+        }
+
+        private static void ShowSequenceRunningMessage() =>
+            DXMessageBox.Show(
+                "MC 투입/차단 시퀀스가 진행 중입니다.\n[■ 시퀀스 중지] 버튼으로 먼저 멈춰주세요.",
+                "동작 불가", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        private async Task WrapSequenceAsync(Func<CancellationToken, Task> body,
+            string historyPanel, string cancelMsg, CancellationToken ct,
+            Action onCancel = null, HistoryEntry inProgress = null)
+        {
+            try
+            {
+                await body(ct);
+                if (inProgress != null) inProgress.Result = "성공";
+            }
+            catch (OperationCanceledException)
+            {
+                onCancel?.Invoke();
+                if (inProgress != null) inProgress.Result = "중단";
+                else AddHistory(historyPanel, cancelMsg, "중단");
+            }
+            finally { EndSequence(); }
+        }
+
         // 선택된 판넬만 반환. null(전체 판넬) → 모든 연결 판넬.
         private IEnumerable<PanelViewModel> GetTargetPanels() =>
             SelectedAutoPanel != null
@@ -373,6 +520,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void ManualLoad(string type, bool on)
         {
+            if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             if (!IsManual)
             {
                 DXMessageBox.Show("수동 모드에서만 조작할 수 있습니다.", "안내", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -380,47 +528,63 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             }
             string act  = on ? "ON" : "OFF";
             string target = SelectedAutoPanel?.Title ?? "전체 판넬";
+
+            if (on)
+            {
+                var mccbOff = GetTargetPanels().Where(p => !p.MccbOn).ToList();
+                if (mccbOff.Any())
+                {
+                    string names = string.Join(", ", mccbOff.Select(p => p.Title));
+                    DXMessageBox.Show($"다음 판넬의 MCCB가 OFF 상태입니다:\n{names}\n\nMCCB를 먼저 투입하세요.", "MC 투입 불가",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
             if (DXMessageBox.Show($"[{target}] {type} 부하를 {act} 하시겠습니까?", "부하 제어 확인",
                     MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
-            _ = on ? ManualLoadOnAsync(type) : ManualLoadOffAsync(type);
+            string evtText = on ? $"[{target}] {type} 부하 ON 순차" : $"[{target}] {type} 부하 OFF 순차 (역순)";
+            var entry = AddHistory("수동", evtText, "진행중");
+            var ct = BeginSequence();
+            _ = WrapSequenceAsync(
+                t => on ? ManualLoadOnAsync(type, t) : ManualLoadOffAsync(type, t),
+                "수동", $"[{target}] {type} 부하 {act} 시퀀스 중단", ct, inProgress: entry);
         }
 
         // 선택 판넬(또는 전체) 순차 ON: PNL-1→2→3 순서
-        private async System.Threading.Tasks.Task ManualLoadOnAsync(string type)
+        private async Task ManualLoadOnAsync(string type, CancellationToken ct)
         {
             _rlcOffSignaled = false;
-            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 foreach (var mc in TypeMcsOrdered(p, type, forward: true))
                 {
+                    ct.ThrowIfCancellationRequested();
                     mc.State = McState.CommWait;
                     ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, true);
-                    await System.Threading.Tasks.Task.Delay(1000);
+                    await Task.Delay(1000, ct);
                 }
             }
-            AddHistory("수동", $"[{panelLabel}] {type} 부하 ON 순차", "성공");
         }
 
         // 선택 판넬(또는 전체) 순차 OFF: 역순
-        private async System.Threading.Tasks.Task ManualLoadOffAsync(string type)
+        private async Task ManualLoadOffAsync(string type, CancellationToken ct)
         {
-            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 foreach (var mc in TypeMcsOrdered(p, type, forward: false))
                 {
+                    ct.ThrowIfCancellationRequested();
                     if (mc.State == McState.Off) continue;
                     mc.State = McState.CommWait;
                     ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
-                    await System.Threading.Tasks.Task.Delay(1000);
+                    await Task.Delay(1000, ct);
                 }
             }
             _rlcOffSignaled = true;
             RefreshRlcState();
-            AddHistory("수동", $"[{panelLabel}] {type} 부하 OFF 순차 (역순)", "성공");
         }
 
         // 타입별 MC를 정방향/역방향으로 반환
@@ -448,56 +612,74 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void Mccb(string kind)
         {
+            if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             if (DXMessageBox.Show($"MCCB {kind} 명령을 실행하시겠습니까?", "MCCB 제어 확인",
                     MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
-            // 연결된 판넬에 Modbus DO 명령 전송 — 피드백(MCCB_*_FB)이 돌아오면 MccbOn/MccbTrip 자동 갱신
-            foreach (var p in Panels.Where(x => x.IsConnected))
+            foreach (var p in GetTargetPanels())
             {
                 ServiceHub.Plc.WriteMcCommand(p.Index, $"P{p.Index + 1}_MCCB_{kind}_CMD", true);
+                // Optimistic UI update — real DI-FB will confirm/correct within poll cycle
+                if (kind == "ON")        p.ApplyStatusFeedback($"P{p.Index + 1}_MCCB_ON_FB",   true);
+                else if (kind == "OFF")  p.ApplyStatusFeedback($"P{p.Index + 1}_MCCB_ON_FB",   false);
+                else if (kind == "TRIP") p.ApplyStatusFeedback($"P{p.Index + 1}_MCCB_TRIP_FB", true);
                 AddHistory(p.Title, $"MCCB {kind}", "성공");
             }
-            if (kind == "TRIP") AddAlarm("ALL", "MCCB TRIP 명령", AlarmLevel.Trip);
+            if (kind == "TRIP") AddAlarm(SelectedAutoPanel?.Title ?? "ALL", "MCCB TRIP 명령", AlarmLevel.Trip);
+            RefreshStatusFlags();
         }
 
         private void ResetAll()
         {
+            if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             if (DXMessageBox.Show("전체 부하를 OFF(Reset) 하시겠습니까?", "Reset 확인",
                     MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                 return;
-            _ = ResetAllAsync();
-        }
-
-        private async System.Threading.Tasks.Task ResetAllAsync()
-        {
-            // C(2→1) → L(8→1) → R(8→1) 역순 순차 OFF
-            await SequentialOffAsync("수동", "RESET 전체 OFF");
+            var entry = AddHistory("수동", "RESET 전체 OFF (C→L→R 역순)", "진행중");
+            var ct = BeginSequence();
+            _ = WrapSequenceAsync(t => SequentialOffAsync(t), "수동", "RESET 시퀀스 중단", ct, inProgress: entry);
         }
 
         // ── Auto operation ────────────────────────────────────────────────────
 
         private void StartAuto()
         {
+            if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             if (!Panels.Any(p => p.IsConnected))
             {
                 DXMessageBox.Show("연결된 PLC가 없습니다.", "자동운전", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            var mccbOff = GetTargetPanels().Where(p => !p.MccbOn).ToList();
+            if (mccbOff.Any())
+            {
+                string names = string.Join(", ", mccbOff.Select(p => p.Title));
+                DXMessageBox.Show($"다음 판넬의 MCCB가 OFF 상태입니다:\n{names}\n\nMCCB를 먼저 투입하세요.", "자동운전 불가",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (DXMessageBox.Show("자동운전을 시작하시겠습니까?\n\nR/L/C 부하가 순차적으로 투입됩니다.",
+                    "자동운전 시작 확인", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                return;
             _rlcOffSignaled = false;
             var targets = ComputeTargets();
             var steps = BuildAutoSteps();
             var plan = ServiceHub.Auto.Start(targets, steps);
-            ApplyPlan(plan);
+
+            HistoryEntry entry;
             if (AutoMode == AutoMode.PowerPf)
             {
                 RTarget = targets.RkW; LTarget = targets.LkVar; CTarget = targets.CkVar;
-                AddHistory("자동", $"자동운전 시작 (P {TargetPower}kW · PF {TargetPf}{(LeadingPf ? " 진상" : " 지상")} → R {targets.RkW:F1}/L {targets.LkVar:F1}/C {targets.CkVar:F1})", "성공");
+                entry = AddHistory("자동", $"자동운전 시작 (P {TargetPower}kW · PF {TargetPf}{(LeadingPf ? " 진상" : " 지상")} → R {targets.RkW:F1}/L {targets.LkVar:F1}/C {targets.CkVar:F1})", "진행중");
             }
             else
             {
-                AddHistory("자동", $"자동운전 시작 (R {RTarget} / L {LTarget} / C {CTarget})", "성공");
+                entry = AddHistory("자동", $"자동운전 시작 (R {RTarget} / L {LTarget} / C {CTarget})", "진행중");
             }
+
+            var ct = BeginSequence();
+            _ = WrapSequenceAsync(t => ApplyPlanAsync(plan, t), "자동", "자동운전 시퀀스 중단", ct, ClearPreview, entry);
         }
 
         private AutoTargets ComputeTargets()
@@ -544,46 +726,45 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             return steps;
         }
 
-        private void ApplyPlan(AutoPlan plan)
-        {
-            _ = ApplyPlanAsync(plan);
-        }
-
         // 계획된 MC만 순차 투입 (R→L→C), 이미 ON인 MC는 건너뜀.
         // OFF해야 할 MC(현재 ON이지만 계획에 없는 것)는 C→L→R 역순으로 개방.
-        private async System.Threading.Tasks.Task ApplyPlanAsync(AutoPlan plan)
+        // 두 루프 모두 GetTargetPanels()로 제한 — 선택되지 않은 판넬의 MC는 건드리지 않는다.
+        private async Task ApplyPlanAsync(AutoPlan plan, CancellationToken ct)
         {
             var on = new HashSet<string>(plan.OnTags);
 
-            // 투입: 계획에 포함된 MC만, R→L→C 순서
-            foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
+            // 투입: 계획에 포함된 MC만, R→L→C 순서 (MCCB OFF 판넬은 건너뜀)
+            foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
+                if (!p.MccbOn) continue;
                 foreach (var typeName in new[] { "R", "L", "C" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: true))
                     {
+                        ct.ThrowIfCancellationRequested();
                         if (!on.Contains(mc.Tag)) continue;    // 계획 외 MC 건너뜀
                         if (mc.State == McState.On) continue;  // 이미 ON
                         if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, true); continue; }
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, true);
-                        await System.Threading.Tasks.Task.Delay(1000);
+                        await Task.Delay(1000, ct);
                     }
                 }
             }
 
-            // 개방: 현재 ON이지만 계획에 없는 MC, C→L→R 역순
-            foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
+            // 개방: 현재 ON이지만 계획에 없는 MC, C→L→R 역순 (선택된 판넬만)
+            foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 foreach (var typeName in new[] { "C", "L", "R" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
+                        ct.ThrowIfCancellationRequested();
                         if (on.Contains(mc.Tag) || mc.State != McState.On) continue;
                         if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, false); continue; }
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
-                        await System.Threading.Tasks.Task.Delay(1000);
+                        await Task.Delay(1000, ct);
                     }
                 }
             }
@@ -592,14 +773,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             ClearPreview();
         }
 
-        private void StopAuto()
-        {
-            ServiceHub.Auto.Stop();
-            _ = SequentialOffAsync("자동", "운전 정지");
-        }
-
         // PNL-1→2→3, 각 패널: C(2→1) → L(TN→SN→RN, 8→1) → R(TN→SN→RN, 8→1)
-        private async System.Threading.Tasks.Task SequentialOffAsync(string panel, string eventLabel)
+        private async Task SequentialOffAsync(CancellationToken ct)
         {
             foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
             {
@@ -607,21 +782,22 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
+                        ct.ThrowIfCancellationRequested();
                         if (mc.State == McState.Off) continue;
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
-                        await System.Threading.Tasks.Task.Delay(1000);
+                        await Task.Delay(1000, ct);
                     }
                 }
             }
             _rlcOffSignaled = true;
             RefreshRlcState();
-            AddHistory(panel, $"{eventLabel} (C→L→R 역순, PNL1→2→3)", "성공");
         }
 
         // 선택 판넬(또는 전체)의 현재 ON MC를 C→L→R 역순으로 1초 간격 OFF
         private void TerminateAuto()
         {
+            if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             var targets = GetTargetPanels().ToList();
             bool anyOn = targets.Any(p => p.AllMcs.Any(m => m.State == McState.On));
             if (!anyOn)
@@ -631,11 +807,18 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            string confirmPanel = SelectedAutoPanel?.Title ?? "전체 판넬";
+            if (DXMessageBox.Show($"운전을 종료하시겠습니까?\n\n[{confirmPanel}] C→L→R 순으로 부하가 차단됩니다.",
+                    "운전 종료 확인", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+                return;
             ServiceHub.Auto.Stop();
-            _ = TerminateAsync(targets);
+            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
+            var entry = AddHistory(panelLabel, "운전 종료 (C→L→R 역순)", "진행중");
+            var ct = BeginSequence();
+            _ = WrapSequenceAsync(t => TerminateAsync(targets, t), panelLabel, "운전 종료 시퀀스 중단", ct, ClearPreview, entry);
         }
 
-        private async System.Threading.Tasks.Task TerminateAsync(IEnumerable<PanelViewModel> panels)
+        private async Task TerminateAsync(IEnumerable<PanelViewModel> panels, CancellationToken ct)
         {
             string panelLabel = SelectedAutoPanel?.Title ?? "전체";
             foreach (var p in panels.OrderBy(p => p.Index))
@@ -644,18 +827,18 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
+                        ct.ThrowIfCancellationRequested();
                         if (mc.State == McState.Off) continue;
                         if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, false); continue; }
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
-                        await System.Threading.Tasks.Task.Delay(1000);
+                        await Task.Delay(1000, ct);
                     }
                 }
             }
             _rlcOffSignaled = true;
             RefreshRlcState();
             ClearPreview();
-            AddHistory(panelLabel, "운전 종료 (C→L→R 역순)", "성공");
         }
 
         // ── State refresh ─────────────────────────────────────────────────────
@@ -705,11 +888,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        private void AddHistory(string panel, string ev, string result)
+        private HistoryEntry AddHistory(string panel, string ev, string result)
         {
             var entry = new HistoryEntry { Time = DateTime.Now, Panel = panel, Event = ev, Result = result };
             History.Insert(0, entry);
             ServiceHub.History.Add(entry);
+            return entry;
         }
 
         private void AddAlarm(string panel, string msg, AlarmLevel level)

@@ -460,16 +460,22 @@
 
                     <!-- 공통 판넬 선택 (수동/자동 공유) -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="8,6">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="판넬 선택" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{StaticResource SubInkBrush}"
-                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <ComboBox x:Name="PanelComboBox"
-                                      SelectionChanged="PanelComboBox_SelectionChanged"
-                                      MinWidth="130" Height="28"
-                                      VerticalAlignment="Center" VerticalContentAlignment="Center"
-                                      FontSize="11"/>
-                        </StackPanel>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="판넬 선택" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource SubInkBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="PanelComboBox"
+                                          SelectionChanged="PanelComboBox_SelectionChanged"
+                                          MinWidth="130" Height="28"
+                                          VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                          FontSize="11"/>
+                            </StackPanel>
+                            <Button HorizontalAlignment="Right" Content="■ 시퀀스 중지"
+                                    Style="{StaticResource BtnRed}" Height="28" Padding="12,0"
+                                    Command="{Binding AbortSequenceCommand}"
+                                    Visibility="{Binding IsSequenceRunning, Converter={StaticResource BoolVis}}"/>
+                        </Grid>
                     </Border>
 
                     <!-- 수동운전 (수동모드일 때만 표출) -->
@@ -566,7 +572,7 @@
                                                 <ColumnDefinition Width="30"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="R 목표 (kW)" VerticalAlignment="Center" FontSize="11"/>
-                                            <TextBox Grid.Column="1" Text="{Binding RTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBox Grid.Column="1" Text="{Binding RTarget, StringFormat=F1, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
                                             <TextBlock Grid.Column="2" Text="kW" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
                                         </Grid>
                                         <Grid Margin="0,0,0,4">
@@ -576,7 +582,7 @@
                                                 <ColumnDefinition Width="30"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="L 목표 (kvar)" VerticalAlignment="Center" FontSize="11"/>
-                                            <TextBox Grid.Column="1" Text="{Binding LTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBox Grid.Column="1" Text="{Binding LTarget, StringFormat=F1, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
                                             <TextBlock Grid.Column="2" Text="kvar" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
                                         </Grid>
                                         <Grid Margin="0,0,0,6">
@@ -586,7 +592,7 @@
                                                 <ColumnDefinition Width="30"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="C 목표 (kvar)" VerticalAlignment="Center" FontSize="11"/>
-                                            <TextBox Grid.Column="1" Text="{Binding CTarget, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
+                                            <TextBox Grid.Column="1" Text="{Binding CTarget, StringFormat=F1, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
                                             <TextBlock Grid.Column="2" Text="kvar" VerticalAlignment="Center" Margin="5,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
                                         </Grid>
                                     </StackPanel>
@@ -615,16 +621,14 @@
                                         <CheckBox Content="진상 (C부하 보상)" IsChecked="{Binding LeadingPf}"
                                                   FontSize="11" Margin="0,0,0,6"/>
                                     </StackPanel>
-                                    <!-- 운전 제어: 3버튼 동일 너비 -->
+                                    <!-- 운전 제어: 2버튼 동일 너비 -->
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="▶ 시작" Style="{StaticResource BtnGreen}" Margin="0,0,2,0" Command="{Binding StartAutoCommand}"/>
-                                        <Button Grid.Column="1" Content="■ 정지" Style="{StaticResource BtnGhost}" Margin="2,0,2,0" Command="{Binding StopAutoCommand}"/>
-                                        <Button Grid.Column="2" Content="⊗ 종료" Style="{StaticResource BtnRed}" Margin="2,0,0,0" Command="{Binding TerminateAutoCommand}"/>
+                                        <Button Grid.Column="0" Content="▶ 시작" Style="{StaticResource BtnGreen}" Margin="0,0,4,0" Command="{Binding StartAutoCommand}"/>
+                                        <Button Grid.Column="1" Content="⊗ 종료" Style="{StaticResource BtnRed}" Margin="4,0,0,0" Command="{Binding TerminateAutoCommand}"/>
                                     </Grid>
                                 </StackPanel>
                             </Grid>
@@ -764,7 +768,10 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <Grid Grid.Row="2" Margin="0,8,0,0">
-                        <Button HorizontalAlignment="Left" Content="알람 확인" Style="{StaticResource BtnGhost}" Width="90" Command="{Binding AckAlarmsCommand}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Content="알람 확인" Style="{StaticResource BtnGhost}" Width="90" Margin="0,0,4,0" Command="{Binding AckAlarmsCommand}"/>
+                            <Button Content="목록 초기화" Style="{StaticResource BtnGhost}" Width="90" Command="{Binding ClearAlarmsCommand}"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <TextBlock Text="미확인 알람 : " Foreground="{StaticResource RedBrush}" FontWeight="SemiBold" FontSize="12"/>
                             <TextBlock Text="{Binding UnackCount}" Foreground="{StaticResource RedBrush}" FontWeight="Bold" FontSize="12"/>
@@ -812,6 +819,12 @@
                                                         <DataTrigger Binding="{Binding Result}" Value="실패">
                                                             <Setter Property="Foreground" Value="#E04F4F"/>
                                                         </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Result}" Value="진행중">
+                                                            <Setter Property="Foreground" Value="#E8943A"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Result}" Value="중단">
+                                                            <Setter Property="Foreground" Value="#888"/>
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
@@ -822,14 +835,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <Grid Grid.Row="2" Margin="0,8,0,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                            <Button Content="◀◀" Style="{StaticResource BtnGhost}" Width="42" Margin="0,0,4,0"/>
-                            <Button Content="◀" Style="{StaticResource BtnGhost}" Width="42" Margin="0,0,8,0"/>
-                            <TextBlock Text="1 / 10" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource SubInkBrush}"/>
-                            <Button Content="▶" Style="{StaticResource BtnGhost}" Width="42" Margin="8,0,4,0"/>
-                            <Button Content="▶▶" Style="{StaticResource BtnGhost}" Width="42"/>
-                        </StackPanel>
-                        <Button HorizontalAlignment="Right" Content="↻ 새로고침" Style="{StaticResource BtnGhost}" Width="100"/>
+                        <Button HorizontalAlignment="Left" Content="목록 초기화" Style="{StaticResource BtnGhost}" Width="90" Command="{Binding ClearHistoryCommand}"/>
                     </Grid>
                 </Grid>
             </Border>
