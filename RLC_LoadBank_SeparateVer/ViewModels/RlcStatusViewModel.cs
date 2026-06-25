@@ -116,6 +116,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         // True only after an explicit manual/stop OFF action — cleared on next ON or disconnect.
         private bool _rlcOffSignaled;
         public bool IsRlcOff   => PlcCommOk && _rlcOffSignaled && !IsRlcOn;
+        // Sequence direction chips: green while the sequence runs, ghost after it ends.
+        public bool IsOnSequenceActive  { get => GetValue<bool>(); set => SetValue(value); }
+        public bool IsOffSequenceActive { get => GetValue<bool>(); set => SetValue(value); }
         // Tracks which protection tags have already fired to prevent repeated triggers per signal.
         private readonly HashSet<string> _activeProtections = new HashSet<string>();
         private CancellationTokenSource _seqCts;
@@ -485,6 +488,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         private void EndSequence()
         {
             IsSequenceRunning = false;
+            IsOnSequenceActive  = false;
+            IsOffSequenceActive = false;
             _seqCts?.Dispose();
             _seqCts = null;
         }
@@ -547,6 +552,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
             string evtText = on ? $"[{target}] {type} 부하 ON 순차" : $"[{target}] {type} 부하 OFF 순차 (역순)";
             var entry = AddHistory("수동", evtText, "진행중");
+            IsOnSequenceActive  = on;
+            IsOffSequenceActive = !on;
             var ct = BeginSequence();
             _ = WrapSequenceAsync(
                 t => on ? ManualLoadOnAsync(type, t) : ManualLoadOffAsync(type, t),
@@ -637,6 +644,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                 return;
             var entry = AddHistory("수동", "RESET 전체 OFF (C→L→R 역순)", "진행중");
+            IsOnSequenceActive  = false;
+            IsOffSequenceActive = true;
             var ct = BeginSequence();
             _ = WrapSequenceAsync(t => SequentialOffAsync(t), "수동", "RESET 시퀀스 중단", ct, inProgress: entry);
         }
@@ -678,6 +687,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 entry = AddHistory("자동", $"자동운전 시작 (R {RTarget} / L {LTarget} / C {CTarget})", "진행중");
             }
 
+            IsOnSequenceActive  = true;
+            IsOffSequenceActive = false;
             var ct = BeginSequence();
             _ = WrapSequenceAsync(t => ApplyPlanAsync(plan, t), "자동", "자동운전 시퀀스 중단", ct, ClearPreview, entry);
         }
@@ -814,6 +825,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             ServiceHub.Auto.Stop();
             string panelLabel = SelectedAutoPanel?.Title ?? "전체";
             var entry = AddHistory(panelLabel, "운전 종료 (C→L→R 역순)", "진행중");
+            IsOnSequenceActive  = false;
+            IsOffSequenceActive = true;
             var ct = BeginSequence();
             _ = WrapSequenceAsync(t => TerminateAsync(targets, t), panelLabel, "운전 종료 시퀀스 중단", ct, ClearPreview, entry);
         }

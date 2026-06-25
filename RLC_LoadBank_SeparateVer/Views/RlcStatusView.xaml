@@ -202,8 +202,8 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1460"/>
-                    <ColumnDefinition Width="340"/>
+                    <ColumnDefinition Width="1440"/>
+                    <ColumnDefinition Width="346"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Header (spans both columns) -->
@@ -211,20 +211,14 @@
                     <TextBlock Text="RLC Diagram / MC Status" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
 
-                        <!-- ON 상태 칩: 운전중=초록 / Trip·Alarm=빨강 / 미운전=Ghost -->
+                        <!-- ON 상태 칩: 투입 시퀀스 진행 중=초록 / 종료되면 Ghost -->
                         <Border CornerRadius="6" Padding="9,4" Margin="3,0">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="#EEF1F6"/>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                        <DataTrigger Binding="{Binding IsOnSequenceActive}" Value="True">
                                             <Setter Property="Background" Value="#EAF7F0"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                            <Setter Property="Background" Value="#FDE8E8"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                            <Setter Property="Background" Value="#FDE8E8"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -235,14 +229,8 @@
                                         <Style TargetType="Ellipse">
                                             <Setter Property="Fill" Value="#ADB4BF"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                                <DataTrigger Binding="{Binding IsOnSequenceActive}" Value="True">
                                                     <Setter Property="Fill" Value="#27A86A"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                                    <Setter Property="Fill" Value="#E04F4F"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                                    <Setter Property="Fill" Value="#E04F4F"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -253,14 +241,8 @@
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRlcOn}" Value="True">
+                                                <DataTrigger Binding="{Binding IsOnSequenceActive}" Value="True">
                                                     <Setter Property="Foreground" Value="#27A86A"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                                    <Setter Property="Foreground" Value="#E04F4F"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                                    <Setter Property="Foreground" Value="#E04F4F"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -269,20 +251,14 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- OFF 상태 칩: 연결됐으나 정지=초록 / Trip·Alarm=빨강 / 미연결=Ghost -->
+                        <!-- OFF 상태 칩: 개방 시퀀스 진행 중=초록 / 종료되면 Ghost -->
                         <Border CornerRadius="6" Padding="9,4" Margin="3,0">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="#EEF1F6"/>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                        <DataTrigger Binding="{Binding IsOffSequenceActive}" Value="True">
                                             <Setter Property="Background" Value="#EAF7F0"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                            <Setter Property="Background" Value="#FDE8E8"/>
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                            <Setter Property="Background" Value="#FDE8E8"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -293,14 +269,8 @@
                                         <Style TargetType="Ellipse">
                                             <Setter Property="Fill" Value="#ADB4BF"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                                <DataTrigger Binding="{Binding IsOffSequenceActive}" Value="True">
                                                     <Setter Property="Fill" Value="#27A86A"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                                    <Setter Property="Fill" Value="#E04F4F"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                                    <Setter Property="Fill" Value="#E04F4F"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -311,14 +281,8 @@
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRlcOff}" Value="True">
+                                                <DataTrigger Binding="{Binding IsOffSequenceActive}" Value="True">
                                                     <Setter Property="Foreground" Value="#27A86A"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasTrip}" Value="True">
-                                                    <Setter Property="Foreground" Value="#E04F4F"/>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
-                                                    <Setter Property="Foreground" Value="#E04F4F"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -602,7 +566,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="80"/>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="30"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="목표 전력" VerticalAlignment="Center" FontSize="11"/>
                                             <TextBox Grid.Column="1" Text="{Binding TargetPower, StringFormat=F1}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
@@ -612,7 +576,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="80"/>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="30"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="목표 역률" VerticalAlignment="Center" FontSize="11"/>
                                             <TextBox Grid.Column="1" Text="{Binding TargetPf, StringFormat=F2}" Height="28" Padding="6,0" VerticalContentAlignment="Center" TextAlignment="Right"/>
