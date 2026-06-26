@@ -13,7 +13,7 @@
     MinWidth="1920"
     MinHeight="100"
     WindowStartupLocation="CenterScreen"
-    WindowStyle="ToolWindow"
+    WindowStyle="SingleBorderWindow"
     WindowState="Maximized"
     >
     <dx:ThemedWindow.Resources>
@@ -113,7 +113,7 @@
         <!--Log-->
         <dxr:RibbonStatusBarControl HorizontalAlignment="Stretch" Grid.Row="1" VerticalAlignment="Stretch" Background="White">
             <dxr:RibbonStatusBarControl.LeftItems>
-                <!--PCS-->
+                <!--PLC-->
                 <dxb:BarStaticItem ShowBorder="False" 
                                    AllowGlyphTheming="True"
                                    GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
@@ -128,15 +128,30 @@
                 </dxb:BarStaticItem>
                 <dxb:BarStaticItem Content="        " ShowBorder="False"/>
 
-                <!--BMS-->
-                <dxb:BarStaticItem ShowBorder="False" 
+                <!--ISEM-->
+                <dxb:BarStaticItem ShowBorder="False"
                                    AllowGlyphTheming="True"
                                    GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
                                    Glyph="{dx:DXImage 'SvgImages/Icon Builder/Electronics_Router.svg'}"
-                                   Content="{Binding StatusManager.Modbus, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                                   Content="{Binding StatusManager.Isem, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
                     <dxb:BarStaticItem.ContentTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding}" Margin="5,5,0,0" Foreground="#FF333333" FontSize="14" FontWeight="Normal" VerticalAlignment="Center" 
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" Foreground="#FF333333" FontSize="12" FontWeight="Normal" VerticalAlignment="Center"
+                                       FontFamily="Malgun Gothic"/>
+                        </DataTemplate>
+                    </dxb:BarStaticItem.ContentTemplate>
+                </dxb:BarStaticItem>
+                <dxb:BarStaticItem Content="        " ShowBorder="False"/>
+
+                <!--GIMAC-->
+                <dxb:BarStaticItem ShowBorder="False"
+                                   AllowGlyphTheming="True"
+                                   GlyphSize="Custom" CustomGlyphSize="23,23" Margin="0,0,0,0"
+                                   Glyph="{dx:DXImage 'SvgImages/Icon Builder/Electronics_Router.svg'}"
+                                   Content="{Binding StatusManager.Gimac, Source={x:Static Application.Current}, UpdateSourceTrigger=PropertyChanged}">
+                    <dxb:BarStaticItem.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="5,5,0,0" Foreground="#FF333333" FontSize="12" FontWeight="Normal" VerticalAlignment="Center"
                                        FontFamily="Malgun Gothic"/>
                         </DataTemplate>
                     </dxb:BarStaticItem.ContentTemplate>

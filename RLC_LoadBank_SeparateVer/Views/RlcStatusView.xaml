@@ -95,7 +95,7 @@
             <!-- diagram -->
             <RowDefinition Height="625"/>
             <!-- bottom panels -->
-            <RowDefinition Height="260"/>
+            <RowDefinition Height="240"/>
         </Grid.RowDefinitions>
 
         <!-- ============ TOP STATUS BAR ============ -->

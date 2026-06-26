@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using DevExpress.Mvvm;
 using RLC_LoadBank_SeparateVer.Models;
 
@@ -77,6 +78,46 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         /// <summary>어떤 보호 기능이라도 동작 중이면 true (알람 칩용)</summary>
         public bool HasFault => OvrFault || OcrFault || HtFault || MccbTrip;
+
+        // ── GIMAC 계측 데이터 (500ms 폴링, OnGimacDataReceived → ApplyGimacReading) ──
+
+        /// <summary>GIMAC 표시 레이블 (e.g. "GIMAC 1")</summary>
+        public string GimacLabel => $"GIMAC {Index + 1}";
+
+        public bool   GimacConnected    { get => GetValue<bool>();   set => SetValue(value); }
+        public double GimacVoltage      { get => GetValue<double>(); set => SetValue(value); }  // V
+        public double GimacCurrent      { get => GetValue<double>(); set => SetValue(value); }  // A
+        public double GimacActivePower  { get => GetValue<double>(); set => SetValue(value); }  // kW
+        public double GimacReactivePower{ get => GetValue<double>(); set => SetValue(value); }  // kVAr
+        public double GimacFrequency    { get => GetValue<double>(); set => SetValue(value); }  // Hz
+
+        // ── 현재 투입된 R/L/C 용량 (MC 상태 기반, RefreshActiveCapacity() 호출 시 갱신) ──
+
+        /// <summary>현재 ON 상태 R 부하 합산 (kW). PLC1=3상 합, PLC2/3=3상 일괄.</summary>
+        public double ActiveRkW   { get => GetValue<double>(); set => SetValue(value); }
+        /// <summary>현재 ON 상태 L 리액터 합산 (kVAr).</summary>
+        public double ActiveLkVar { get => GetValue<double>(); set => SetValue(value); }
+        /// <summary>현재 ON 상태 C 부하 합산 (kVAr).</summary>
+        public double ActiveCkVar { get => GetValue<double>(); set => SetValue(value); }
+
+        /// <summary>MC 상태 변경 시 RlcStatusViewModel에서 호출.</summary>
+        public void RefreshActiveCapacity()
+        {
+            ActiveRkW   = RGroups.Sum(g => g.Items.Where(m => m.State == McState.On).Sum(m => m.Value));
+            ActiveLkVar = LGroups.Sum(g => g.Items.Where(m => m.State == McState.On).Sum(m => m.Value));
+            ActiveCkVar = CSteps.Where(m => m.State == McState.On).Sum(m => m.Value);
+        }
+
+        /// <summary>GIMAC 폴링 데이터를 패널 프로퍼티에 반영.</summary>
+        public void ApplyGimacReading(GimacReading r)
+        {
+            GimacConnected     = true;
+            GimacVoltage       = r.AvgVoltage;
+            GimacCurrent       = r.AvgCurrent;
+            GimacActivePower   = r.ActivePower   / 1000.0;
+            GimacReactivePower = r.ReactivePower / 1000.0;
+            GimacFrequency     = r.Frequency;
+        }
 
         // ── 생성자 ───────────────────────────────────────────────────────────
 

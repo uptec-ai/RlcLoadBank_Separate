@@ -227,6 +227,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             if (mc != null)
             {
                 mc.State = fb.On ? McState.On : McState.Off;
+                panel.RefreshActiveCapacity();
                 RefreshRlcState();
                 return;
             }
@@ -298,6 +299,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     {
                         if (mc.State == McState.Off) continue;
                         mc.State = McState.CommWait;
+                        p.RefreshActiveCapacity();
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
                     }
                 }
@@ -318,6 +320,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 {
                     if (mc.State == McState.Off) continue;
                     mc.State = McState.CommWait;
+                    panel.RefreshActiveCapacity();
                     ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, false);
                     await System.Threading.Tasks.Task.Delay(500);
                 }
@@ -350,6 +353,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 case 2: Pnl2PowerSeries.Append(r.Timestamp, kw); break;
                 case 3: Pnl3PowerSeries.Append(r.Timestamp, kw); break;
             }
+            // 패널 다이어그램 계측 데이터 반영 (UnitId 1→Panel 0, 2→Panel 1, 3→Panel 2)
+            var panel = Panels.FirstOrDefault(p => p.Index == r.Device.UnitId - 1);
+            panel?.ApplyGimacReading(r);
             UpdatePowerYAxisRange(kw);
         }
 
@@ -472,6 +478,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             mc.State = McState.CommWait;
             bool ok = await ServiceHub.CLoad.RunAsync(panel.Index, stage, on);
             mc.State = ok ? (on ? McState.On : McState.Off) : McState.Alarm;
+            panel.RefreshActiveCapacity();
             AddHistory(panel.Title, $"C{stage} {(on ? "투입 시퀀스" : "개방 시퀀스")} {(ok ? "완료" : "실패")}", ok ? "성공" : "실패");
             if (!ok) AddAlarm(panel.Title, $"C{stage} 시퀀스 타임아웃 / 인터락 실패", AlarmLevel.Alarm);
         }
@@ -586,6 +593,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     ct.ThrowIfCancellationRequested();
                     if (mc.State == McState.Off) continue;
                     mc.State = McState.CommWait;
+                    p.RefreshActiveCapacity();
                     ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
                     await Task.Delay(1000, ct);
                 }
@@ -796,6 +804,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         ct.ThrowIfCancellationRequested();
                         if (mc.State == McState.Off) continue;
                         mc.State = McState.CommWait;
+                        p.RefreshActiveCapacity();
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
                         await Task.Delay(1000, ct);
                     }

@@ -1,0 +1,71 @@
+================================================================================
+  RLC Load Bank (선로모의장치) — 개발 이력 요약
+  WPF .NET 8.0 / DevExpress v24.2.14 / SciChart v9 / Modbus TCP (NModbus)
+================================================================================
+
+[2026-06-23 17:49]  Initial commit — README 초기화, 프로젝트 저장소 생성
+
+[2026-06-23 17:53]  프로젝트 전체 뼈대 생성 — 솔루션·csproj·App.xaml, MainWindow(HamburgerMenu+StatusBar),
+                    RlcStatusView(상태칩·다이어그램·수동/자동운전·알람·이력), DeviceConnectionView(PLC/ISEM/GIMAC 탭),
+                    PanelDiagram1View·PanelDiagram3PhaseView·RlcDiagramView, 서비스 레이어
+                    (ModbusPlcService·MockPlcService·CLoadSequencer·AutoOperationService·StatusManager 등),
+                    ViewModel 레이어(RlcStatusViewModel·PanelViewModel·McViewModel 등), 도메인 docs·rules 전체 작성
+
+[2026-06-24 11:47]  ISEM·GIMAC 프로토콜 정의 및 버그 수정 — MeteringService(500ms 폴링·TCP 재연결),
+                    MeteringProtocol(GIMAC FC4 레지스터맵·ISEM FC3 레지스터맵), MeterReading 모델 추가,
+                    DeviceConnectionView ISEM/GIMAC 탭 연결 상태 표출 개선, DeviceItemViewModel 수정
+
+[2026-06-24 18:03]  RlcStatusView 대규모 개선 — 수동/자동 운전 패널 레이아웃 정비,
+                    SciChart 유효전력 실시간 차트(PNL-1/2/3 계통별), 트립·알람 DataGrid,
+                    운전 이력 DataGrid, RlcStatusViewModel 자동운전 계획·시퀀스 로직 보강
+
+[2026-06-25 15:07]  PLC 서비스·운전 이력 수정 — ModbusPlcService 폴링 안정화,
+                    LogEntries 모델 개선(AlarmLevel·HistoryEntry 구조 정비),
+                    RlcStatusViewModel 보호동작(EMG·OVR·OCR·HT) 자동 차단 시퀀스·이력 로직 추가,
+                    RlcStatusView.xaml.cs 네비게이션 이벤트 처리 개선
+
+[2026-06-25 17:47]  MC 용량 표시 — McViewModel에 ValueText 프로퍼티 추가(kW/kvar 단위 자동),
+                    App.xaml McCircle 스타일 재구성(StackPanel: 26×26 원형+하단 용량 텍스트),
+                    PanelDiagram1/3PhaseView 레이아웃 소폭 조정
+
+[2026-06-25 18:09]  ON/OFF 상태 칩 개선 — RlcStatusViewModel에 IsOnSequenceActive·IsOffSequenceActive 추가,
+                    EndSequence()에서 두 플래그 초기화(시퀀스 종료 시 ghost 색으로 복귀),
+                    RlcStatusView 상태 칩 바인딩 변경, 다이어그램 뷰 레이아웃 미세 조정
+
+--------------------------------------------------------------------------------
+  이하 미커밋 작업 (2026-06-26 세션)
+--------------------------------------------------------------------------------
+
+[2026-06-26 ①]     장비 연결 실시간 동기화 — DeviceConnectionViewModel에 ReprobePeriodicallyAsync(5초 주기) 추가,
+                    팝업 닫힐 때 CancellationTokenSource 취소, 비연결 장비만 재탐색
+
+[2026-06-26 ②]     RlcStatusView 다이어그램 영역 크기 고정 — RowDefinition Height=625, ColumnDefinition
+                    Width=1440(다이어그램)·346(운전패널) 고정값 지정, 콘텐츠 추가 시 레이아웃 변동 방지
+
+[2026-06-26 ③]     PanelViewModel GIMAC 계측 연동 — GimacLabel·GimacConnected·GimacVoltage·GimacCurrent·
+                    GimacActivePower·GimacReactivePower·GimacFrequency 프로퍼티 추가,
+                    ActiveRkW·ActiveLkVar·ActiveCkVar(MC On 상태 합산) 프로퍼티 및
+                    RefreshActiveCapacity()·ApplyGimacReading() 메서드 추가
+
+[2026-06-26 ④]     RlcStatusViewModel GIMAC 데이터 라우팅 — OnGimacDataReceived에서 UnitId→Panel 매핑하여
+                    panel.ApplyGimacReading() 호출, OnFeedback에서 MC 상태 변경 시 panel.RefreshActiveCapacity() 추가
+
+[2026-06-26 ⑤]     PanelDiagram1View GIMAC 계측 카드 추가 — AC SOURCE 박스 하단에 GIMAC 1 카드 삽입
+                    (연결 상태 표시등, R/L/C 투입 용량, V/I/P/Q/f 계측값 바인딩)
+
+[2026-06-26 ⑥]     PanelDiagram3PhaseView GIMAC 계측 카드 추가 — PNL-2·PNL-3 공용 뷰에 동일 GIMAC 카드 적용
+                    (GimacLabel이 Index+1 기반으로 "GIMAC 2"·"GIMAC 3" 자동 표시)
+
+[2026-06-26 ⑦]     C 부하 투입 시 ActiveCkVar 미갱신 수정 — RunCStageAsync 완료 후
+                    mc.State 직접 설정 경로에 panel.RefreshActiveCapacity() 추가
+
+[2026-06-26 ⑧]     C 부하 개방 시 ActiveCkVar 미갱신 수정 — ManualLoadOffAsync·SequentialOffAsync·
+                    EmergencyOffAsync·ProtectionOffAsync의 mc.State=CommWait 직후
+                    panel.RefreshActiveCapacity() 추가(피드백 도착 전 즉시 반영)
+
+[2026-06-26 ⑨]     StatusBar ISEM·GIMAC 연결 개수 표출 — StatusManager에서 Modbus 항목 제거,
+                    ISEM·GIMAC 프로퍼티 추가 및 MeteringService.ConnectionChanged 구독,
+                    MainWindow.xaml 해당 BarStaticItem 바인딩 변경
+                    표시 형식: "PLC n/3 연결" · "ISEM n/10 연결" · "GIMAC n/3 연결"
+
+================================================================================
