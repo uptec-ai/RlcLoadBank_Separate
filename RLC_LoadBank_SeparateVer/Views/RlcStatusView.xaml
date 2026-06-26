@@ -619,7 +619,7 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0" Margin="0,0,0,6">
-                        <TextBlock Text="전력 트렌드 (kW)" FontWeight="Bold" FontSize="14"
+                        <TextBlock Text="실시간 전력 트렌드 (kW)" FontWeight="Bold" FontSize="14"
                                    Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Ellipse Width="9" Height="9" Fill="#E04F4F" VerticalAlignment="Center"/>

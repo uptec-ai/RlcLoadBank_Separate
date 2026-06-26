@@ -9,6 +9,7 @@
     </UserControl.DataContext>
 
     <UserControl.Resources>
+        <!-- KPI card -->
         <Style x:Key="Kpi" TargetType="Border" BasedOn="{StaticResource Card}">
             <Setter Property="Padding" Value="14,10"/>
         </Style>
@@ -22,67 +23,270 @@
             <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
+
+        <!-- Period button — custom template so DevExpress theme does not interfere -->
+        <Style x:Key="PeriodBtn" TargetType="Button">
+            <Setter Property="Width" Value="52"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Malgun Gothic"/>
+            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3" Padding="6,3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="14">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="220"/>
+            <RowDefinition Height="Auto"/>   <!-- header + panel selector -->
+            <RowDefinition Height="Auto"/>   <!-- KPI cards -->
+            <RowDefinition Height="*"/>      <!-- detail DataGrid -->
+            <RowDefinition Height="240"/>    <!-- delta trend chart -->
         </Grid.RowDefinitions>
 
-        <!-- header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,12">
-            <TextBlock Text="계측 현황" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderText}" VerticalAlignment="Center"/>
-            <TextBlock Text="GIMAC 1000 (BUS) · EOCR-iSEM2 + sPDM (#1–#10)" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="12,4,0,0"/>
-            <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" Width="140" Height="28" Margin="20,0,0,0" VerticalAlignment="Center"/>
-        </StackPanel>
+        <!-- ══ Row 0: Header ══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="0" Margin="2,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- KPI cards -->
-        <UniformGrid Grid.Row="1" Rows="1" Columns="7" Margin="0,0,0,12">
-            <Border Style="{StaticResource Kpi}" Margin="0,0,6,0"><StackPanel><TextBlock Text="평균 전압" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding AvgVoltage, StringFormat=F1, Mode=OneWay}"/><Run Text=" V" FontSize="12"/></TextBlock></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="평균 전류" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding AvgCurrent, StringFormat=F1, Mode=OneWay}"/><Run Text=" A" FontSize="12"/></TextBlock></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="유효전력" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding ActivePower, StringFormat=F1, Mode=OneWay}"/><Run Text=" kW" FontSize="12"/></TextBlock></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="무효전력" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding ReactivePower, StringFormat=F1, Mode=OneWay}"/><Run Text=" kvar" FontSize="12"/></TextBlock></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="역률" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}" Text="{Binding Pf, StringFormat=F3, Mode=OneWay}"/></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,6,0"><StackPanel><TextBlock Text="주파수" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding Frequency, StringFormat=F2, Mode=OneWay}"/><Run Text=" Hz" FontSize="12"/></TextBlock></StackPanel></Border>
-            <Border Style="{StaticResource Kpi}" Margin="6,0,0,0"><StackPanel><TextBlock Text="전압 THD" Style="{StaticResource KpiCap}"/><TextBlock Style="{StaticResource KpiVal}"><Run Text="{Binding VoltageThd, StringFormat=F1, Mode=OneWay}"/><Run Text=" %" FontSize="12"/></TextBlock></StackPanel></Border>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock Text="계측 현황" FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource HeaderText}" VerticalAlignment="Center"/>
+                <TextBlock Text="GIMAC 1000 (BUS) · EOCR-iSEM2 + sPDM (#1–#10)"
+                           FontSize="12" Foreground="{StaticResource SubInkBrush}"
+                           VerticalAlignment="Center" Margin="12,4,0,0"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="패널 선택" FontSize="12" Foreground="{StaticResource SubInkBrush}"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox ItemsSource="{Binding Panels}"
+                          SelectedItem="{Binding SelectedPanel}"
+                          DisplayMemberPath="Label"
+                          Width="110" Height="28" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- ══ Row 1: KPI Cards (7개) ════════════════════════════════════════ -->
+        <UniformGrid Grid.Row="1" Rows="1" Columns="7" Margin="0,0,0,10">
+            <Border Style="{StaticResource Kpi}" Margin="0,0,5,0">
+                <StackPanel>
+                    <TextBlock Text="평균 전압" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiVoltage, StringFormat=F1, Mode=OneWay}"/>
+                        <Run Text=" V" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="평균 전류" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiCurrent, StringFormat=F1, Mode=OneWay}"/>
+                        <Run Text=" A" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="유효전력" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiActivePower, StringFormat=F2, Mode=OneWay}"/>
+                        <Run Text=" kW" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="무효전력" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiReactivePower, StringFormat=F2, Mode=OneWay}"/>
+                        <Run Text=" kVAr" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="역률" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}"
+                               Text="{Binding KpiPowerFactor, StringFormat=F3, Mode=OneWay}"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="주파수" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiFrequency, StringFormat=F2, Mode=OneWay}"/>
+                        <Run Text=" Hz" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Kpi}" Margin="5,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="전압 THD (평균)" Style="{StaticResource KpiCap}"/>
+                    <TextBlock Style="{StaticResource KpiVal}">
+                        <Run Text="{Binding KpiVoltThd, StringFormat=F1, Mode=OneWay}"/>
+                        <Run Text=" %" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
         </UniformGrid>
 
-        <!-- EOCR line meters -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <!-- ══ Row 2: Detail DataGrid ══════════════════════════════════════════ -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10">
             <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="EOCR 선로 계측 (#1–#10)" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                <DataGrid Grid.Row="1" ItemsSource="{Binding Lines}" AutoGenerateColumns="False" IsReadOnly="True"
-                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
-                          RowHeight="30" FontSize="12" Background="Transparent" RowBackground="Transparent" CanUserAddRows="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="세부 계측 데이터 (GIMAC · ISEM)"
+                           Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding DataRows}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          BorderThickness="0" RowHeight="26" FontSize="12"
+                          Background="Transparent" RowBackground="Transparent"
+                          CanUserAddRows="False"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling">
+                    <DataGrid.AlternatingRowBackground>
+                        <SolidColorBrush Color="#F0F4FA" Opacity="0.8"/>
+                    </DataGrid.AlternatingRowBackground>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="선로" Binding="{Binding Name}" Width="90"/>
-                        <DataGridTextColumn Header="전압" Binding="{Binding VoltageText}" Width="*"/>
-                        <DataGridTextColumn Header="전류" Binding="{Binding CurrentText}" Width="*"/>
-                        <DataGridTextColumn Header="유효전력" Binding="{Binding PowerText}" Width="*"/>
-                        <DataGridTextColumn Header="역률" Binding="{Binding PfText}" Width="*"/>
-                        <DataGridTextColumn Header="전류 THD" Binding="{Binding ThdText}" Width="*"/>
+                        <DataGridTextColumn Header="장치" Binding="{Binding Category}" Width="100">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Foreground" Value="#2F6FE0"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="항목" Binding="{Binding Name}" Width="200">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="값" Binding="{Binding Value}" Width="130">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="Margin" Value="0,0,12,0"/>
+                                    <Setter Property="FontFamily" Value="Consolas"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="단위" Binding="{Binding Unit}" Width="60">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource SubInkBrush}"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
         </Border>
 
-        <!-- live power trend -->
+        <!-- ══ Row 3: Delta Trend Chart ════════════════════════════════════════ -->
         <Border Grid.Row="3" Style="{StaticResource Card}">
             <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <!-- header: title + GIMAC connection status per panel -->
+                <!-- Header: title + period buttons + panel legend dots -->
                 <Grid Grid.Row="0" Margin="0,0,0,6">
-                    <TextBlock Text="실시간 전력 트렌드 (유효전력 kW)" Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- Left: title + period buttons -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DeltaChartTitle}"
+                                   Style="{StaticResource SectionHeader}" VerticalAlignment="Center"/>
 
-                        <!-- PNL-1 legend + GIMAC01 연결 상태 -->
-                        <Rectangle Width="18" Height="3" Fill="#2F6FE0" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
-                        <TextBlock Text="PNL-1" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <!-- Period selector group -->
+                        <Border Background="#EAECF0" CornerRadius="4"
+                                Margin="16,0,0,0" Padding="2" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="1m"
+                                        Command="{Binding SelectPeriodCommand}"
+                                        CommandParameter="1m">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource PeriodBtn}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedPeriod}" Value="1m">
+                                                    <Setter Property="Background" Value="#2F6FE0"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="1h"
+                                        Command="{Binding SelectPeriodCommand}"
+                                        CommandParameter="1h">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource PeriodBtn}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedPeriod}" Value="1h">
+                                                    <Setter Property="Background" Value="#2F6FE0"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="1day"
+                                        Command="{Binding SelectPeriodCommand}"
+                                        CommandParameter="1day">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource PeriodBtn}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedPeriod}" Value="1day">
+                                                    <Setter Property="Background" Value="#2F6FE0"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Right: panel legend + GIMAC connection dots -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- PNL-1 -->
+                        <Rectangle Width="18" Height="3" Fill="#E04F4F" VerticalAlignment="Center"
+                                   Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-1" FontSize="11" Foreground="{StaticResource SubInkBrush}"
+                                   VerticalAlignment="Center"/>
                         <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,14,0">
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
@@ -95,10 +299,11 @@
                                 </Style>
                             </Ellipse.Style>
                         </Ellipse>
-
-                        <!-- PNL-2 legend + GIMAC02 연결 상태 -->
-                        <Rectangle Width="18" Height="3" Fill="#E8943A" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
-                        <TextBlock Text="PNL-2" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <!-- PNL-2 -->
+                        <Rectangle Width="18" Height="3" Fill="#27A86A" VerticalAlignment="Center"
+                                   Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-2" FontSize="11" Foreground="{StaticResource SubInkBrush}"
+                                   VerticalAlignment="Center"/>
                         <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,14,0">
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
@@ -111,10 +316,11 @@
                                 </Style>
                             </Ellipse.Style>
                         </Ellipse>
-
-                        <!-- PNL-3 legend + GIMAC03 연결 상태 -->
-                        <Rectangle Width="18" Height="3" Fill="#27A86A" VerticalAlignment="Center" Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
-                        <TextBlock Text="PNL-3" FontSize="11" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                        <!-- PNL-3 -->
+                        <Rectangle Width="18" Height="3" Fill="#4B7BF5" VerticalAlignment="Center"
+                                   Margin="0,0,5,0" RadiusX="1" RadiusY="1"/>
+                        <TextBlock Text="PNL-3" FontSize="11" Foreground="{StaticResource SubInkBrush}"
+                                   VerticalAlignment="Center"/>
                         <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="4,0,0,0">
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
@@ -130,20 +336,69 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- SciChart: 3 panel ActivePower series -->
-                <s:SciChartSurface Grid.Row="1">
+                <!-- SciChart: delta trend (all 3 panels, selected period) -->
+                <s:SciChartSurface Grid.Row="1"
+                                   s:ThemeManager.Theme="BrightSpark"
+                                   Background="Transparent">
                     <s:SciChartSurface.RenderableSeries>
-                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl1PowerSeries}" Stroke="#2F6FE0" StrokeThickness="2"/>
-                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl2PowerSeries}" Stroke="#E8943A" StrokeThickness="2"/>
-                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl3PowerSeries}" Stroke="#27A86A" StrokeThickness="2"/>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl1DeltaSeries}"
+                                                    Stroke="#E04F4F" StrokeThickness="2">
+                            <s:FastLineRenderableSeries.PointMarker>
+                                <s:EllipsePointMarker Width="8" Height="8"
+                                                      Fill="#E04F4F"
+                                                      Stroke="White"
+                                                      StrokeThickness="1.5"/>
+                            </s:FastLineRenderableSeries.PointMarker>
+                        </s:FastLineRenderableSeries>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl2DeltaSeries}"
+                                                    Stroke="#27A86A" StrokeThickness="2">
+                            <s:FastLineRenderableSeries.PointMarker>
+                                <s:EllipsePointMarker Width="8" Height="8"
+                                                      Fill="#27A86A"
+                                                      Stroke="White"
+                                                      StrokeThickness="1.5"/>
+                            </s:FastLineRenderableSeries.PointMarker>
+                        </s:FastLineRenderableSeries>
+                        <s:FastLineRenderableSeries DataSeries="{Binding Pnl3DeltaSeries}"
+                                                    Stroke="#4B7BF5" StrokeThickness="2">
+                            <s:FastLineRenderableSeries.PointMarker>
+                                <s:EllipsePointMarker Width="8" Height="8"
+                                                      Fill="#4B7BF5"
+                                                      Stroke="White"
+                                                      StrokeThickness="1.5"/>
+                            </s:FastLineRenderableSeries.PointMarker>
+                        </s:FastLineRenderableSeries>
                     </s:SciChartSurface.RenderableSeries>
                     <s:SciChartSurface.XAxes>
-                        <s:DateTimeAxis DrawMajorGridLines="True" DrawMinorGridLines="False"/>
+                        <s:DateTimeAxis AutoRange="Always"
+                                        TextFormatting="{Binding DeltaXAxisFormat}"
+                                        DrawMajorGridLines="False"
+                                        DrawMinorGridLines="False"
+                                        DrawMajorTicks="False"
+                                        DrawMinorTicks="False"
+                                        MaxAutoTicks="6"
+                                        FontSize="11"
+                                        AxisTitle="Time"/>
                     </s:SciChartSurface.XAxes>
                     <s:SciChartSurface.YAxes>
-                        <s:NumericAxis AutoRange="Never" AxisTitle="kW"
-                                       VisibleRange="{Binding PowerYAxisRange, Mode=TwoWay}"/>
+                        <s:NumericAxis AutoRange="Always"
+                                       DrawMajorBands="False"
+                                       DrawMajorTicks="False"
+                                       DrawMinorTicks="False"
+                                       DrawMinorGridLines="False"
+                                       MaxAutoTicks="6"
+                                       FontSize="11"
+                                       AxisTitle="ΔkW"/>
                     </s:SciChartSurface.YAxes>
+                    <s:SciChartSurface.ChartModifier>
+                        <s:ModifierGroup>
+                            <s:RolloverModifier DrawVerticalLine="True"
+                                                ShowTooltipOn="MouseOver"
+                                                ShowAxisLabels="True"/>
+                            <s:ZoomPanModifier ExecuteOn="MouseLeftButton"/>
+                            <s:MouseWheelZoomModifier/>
+                        </s:ModifierGroup>
+                    </s:SciChartSurface.ChartModifier>
                 </s:SciChartSurface>
             </Grid>
         </Border>
