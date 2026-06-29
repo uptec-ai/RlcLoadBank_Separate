@@ -109,6 +109,60 @@
                 </Setter>
             </Style>
 
+            <!-- C-stage block: IsRunning(동작), HasAlarm(알람), MC1/SCR/MC2 알람 도트 -->
+            <Style x:Key="CStageBlock" TargetType="Button">
+                <Setter Property="Width" Value="44"/>
+                <Setter Property="Margin" Value="2"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Command" Value="{Binding ToggleCommand}"/>
+                <Setter Property="ToolTip" Value="{Binding Label}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Grid Width="30" Height="30" HorizontalAlignment="Center">
+                                    <Ellipse x:Name="ring" Fill="White" Stroke="#9E9E9E" StrokeThickness="2.5"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="10"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{StaticResource InkBrush}"/>
+                                </Grid>
+                                <!-- 알람 도트: MC1 · SCR · MC2 -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
+                                    <Ellipse x:Name="dotMc1" Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                    <Ellipse x:Name="dotScr"  Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                    <Ellipse x:Name="dotMc2" Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <!-- 동작 중 -->
+                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                    <Setter TargetName="ring" Property="Fill"   Value="#E4F5EC"/>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#27A86A"/>
+                                </DataTrigger>
+                                <!-- 알람 발생 -->
+                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                    <Setter TargetName="ring" Property="Fill"   Value="#FBE3E3"/>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#E53935"/>
+                                </DataTrigger>
+                                <!-- 개별 알람 도트 -->
+                                <DataTrigger Binding="{Binding Mc1Alarm}" Value="True">
+                                    <Setter TargetName="dotMc1" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ScrAlarm}" Value="True">
+                                    <Setter TargetName="dotScr" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Mc2Alarm}" Value="True">
+                                    <Setter TargetName="dotMc2" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ring" Property="StrokeThickness" Value="3.5"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- Load-group box header -->
             <Style x:Key="LoadBoxHeader" TargetType="TextBlock">
                 <Setter Property="FontWeight" Value="SemiBold"/>

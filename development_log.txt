@@ -112,4 +112,21 @@
                     신규 데이터 도착 시 자동 스크롤, 줌인/아웃으로 FIFO 이전 데이터 탐색, 더블클릭 전체 복원.
                     _xWindowSize(TimeSpan) 프라이빗 필드 + UpdateXAxisRange(DateTime, int, bool) 메서드 추가.
 
+--------------------------------------------------------------------------------
+  이하 미커밋 작업 (2026-06-29 세션 C)
+--------------------------------------------------------------------------------
+
+[2026-06-29 ②]     C부하 시퀀스 PLC 이관 — HMI C-Load 재설계 (8개 파일 수정)
+                    PlcProtocol: IoKind에 CResult/CAlarm/CCmdDo 추가, PNL-1 C-load DI(48-55)/DO(48,51) 재정의,
+                    PNL-2/3 C-load DI(16-23)/DO(16-17) 재정의, 보호 DI/DO 주소 +2 이동(SCR_FB 주소 확보).
+                    McViewModel: CStageViewModel 신규 (IsRunning, Mc1Alarm, Mc2Alarm, ScrAlarm, HasAlarm).
+                    PanelViewModel: CSteps ObservableCollection<McViewModel>→<CStageViewModel>, CStageToggleRequested,
+                    RefreshActiveCapacity() IsRunning 기반, TryApplyCFeedback() 추가.
+                    CLoadSequencer: 9단계 시퀀스 제거 → 스텁 (PLC 내부 담당).
+                    ModbusPlcService: coil reverse map McLoad만 포함 (CCmdDo 제외).
+                    RlcStatusViewModel: OnCStageToggle 추가, OnFeedback C-load 분기 추가,
+                    RunCStageAsync 제거, 자동/수동/긴급 시퀀스 CStagesOrdered로 분리.
+                    App.xaml: CStageBlock 스타일 (IsRunning 녹색, HasAlarm 적색, 알람 도트 MC1·SCR·MC2).
+                    PanelDiagram1/3PhaseView: C 섹션 McCircle→CStageBlock 교체.
+
 ================================================================================

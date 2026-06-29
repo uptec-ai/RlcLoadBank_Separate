@@ -24,7 +24,7 @@ namespace RLC_LoadBank_SeparateVer.Services
         /// false = ReadCoils (FC1) — test Modbus server that echoes coil writes.
         /// true  = ReadInputs (FC2) — production PLC (DI / DO are separate address spaces).
         /// </summary>
-        public static bool UseDiscreteInputsForFeedback = false;
+        public static bool UseDiscreteInputsForFeedback = true;
 
         private class PanelState
         {
@@ -84,7 +84,7 @@ namespace RLC_LoadBank_SeparateVer.Services
 
             // DI map (production feedback)
             var diPts    = pts.Where(p => p.DiAddr.HasValue).ToList();
-            int diMax    = diPts.Max(p => (int)p.DiAddr.Value);
+            int diMax    = diPts.Count > 0 ? diPts.Max(p => (int)p.DiAddr.Value) : 0;
             var diToTag  = new string[diMax + 1];
             foreach (var pt in diPts) diToTag[pt.DiAddr.Value] = pt.Tag;
 
@@ -93,10 +93,11 @@ namespace RLC_LoadBank_SeparateVer.Services
             var doTagToAddr = new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase);
             foreach (var pt in doPts) doTagToAddr[pt.Tag] = pt.DoAddr.Value;
 
-            // Coil reverse map (test server: MC/C-sub only — DO addr == DI addr for these)
-            int doMax    = doPts.Max(p => (int)p.DoAddr.Value);
+            // Coil reverse map (test server: R/L MC only — DO addr == DI addr for these)
+            // C부하 CMD(CCmdDo)는 포함 안 함 — C_RESULT가 별도 DI로 오기 때문
+            int doMax    = doPts.Count > 0 ? doPts.Max(p => (int)p.DoAddr.Value) : 0;
             var doToTag  = new string[doMax + 1];
-            foreach (var pt in doPts.Where(p => p.Kind == IoKind.McLoad || p.Kind == IoKind.CLoad))
+            foreach (var pt in doPts.Where(p => p.Kind == IoKind.McLoad))
                 doToTag[pt.DoAddr.Value] = pt.Tag;
 
             // Allocate LastState for the larger of the two ranges
@@ -212,9 +213,8 @@ namespace RLC_LoadBank_SeparateVer.Services
             try { pn.Master.WriteSingleCoil(pn.UnitId, addr, on); } catch { }
 
             // PollLoop은 변화가 있을 때만 FeedbackReceived를 발생시킨다.
-            // 이미 원하는 값이면 코일이 바뀌지 않으므로 폴링에서 감지되지 않음
-            // (예: C부하 OFF 시퀀스 마지막 R_MC=false — ON 완료 시 이미 false 상태).
-            // 이 경우 즉시 피드백을 발생시켜 CLoadSequencer 타임아웃을 방지한다.
+            // 이미 원하는 값이면 코일이 바뀌지 않으므로 폴링에서 감지되지 않음.
+            // 이 경우 즉시 피드백을 발생시켜 UI 상태 동기화를 보장한다.
             if (addr < pn.LastState.Length && pn.LastState[addr] == on)
                 RaiseFeedback(panelIndex, mcTag, on);
         }

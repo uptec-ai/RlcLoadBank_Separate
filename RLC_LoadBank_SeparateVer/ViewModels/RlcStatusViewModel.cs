@@ -157,7 +157,11 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             Panels.Add(new PanelViewModel(0, "PLC1 / PNL-1", true, ServiceHub.Plc.IsConnected(0)));
             Panels.Add(new PanelViewModel(1, "PLC2 / PNL-2", false, ServiceHub.Plc.IsConnected(1)));
             Panels.Add(new PanelViewModel(2, "PLC3 / PNL-3", false, ServiceHub.Plc.IsConnected(2)));
-            foreach (var p in Panels) p.McToggleRequested = OnMcToggle;
+            foreach (var p in Panels)
+            {
+                p.McToggleRequested     = OnMcToggle;
+                p.CStageToggleRequested = OnCStageToggle;
+            }
 
             Pnl1PowerSeries = new XyDataSeries<DateTime, double> { SeriesName = "PNL-1 (kW)", FifoCapacity = 300 };
             Pnl2PowerSeries = new XyDataSeries<DateTime, double> { SeriesName = "PNL-2 (kW)", FifoCapacity = 300 };
@@ -223,6 +227,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var panel = Panels.FirstOrDefault(p => p.Index == fb.PanelIndex);
             if (panel == null) return;
 
+            // R/L MC 피드백
             var mc = panel.FindMc(fb.McTag);
             if (mc != null)
             {
@@ -232,6 +237,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 return;
             }
 
+            // C부하 RESULT / 알람 DI 피드백
+            if (panel.TryApplyCFeedback(fb.McTag, fb.On))
+            {
+                RefreshRlcState();
+                return;
+            }
+
+            // 보호·상태 DI 피드백
             if (fb.McTag.EndsWith("_FB", StringComparison.OrdinalIgnoreCase))
             {
                 panel.ApplyStatusFeedback(fb.McTag, fb.On);
@@ -293,7 +306,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
             {
-                foreach (var typeName in new[] { "C", "L", "R" })
+                foreach (var cs in CStagesOrdered(p, false))
+                    if (cs.IsRunning) ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", false);
+                foreach (var typeName in new[] { "L", "R" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
@@ -314,7 +329,15 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         // 개별 판넬 보호동작: C→L→R 역순, 500ms 간격
         private async System.Threading.Tasks.Task ProtectionOffAsync(PanelViewModel panel, string reason)
         {
-            foreach (var typeName in new[] { "C", "L", "R" })
+            foreach (var cs in CStagesOrdered(panel, false))
+            {
+                if (cs.IsRunning)
+                {
+                    ServiceHub.Plc.WriteMcCommand(panel.Index, $"{cs.Tag}_CMD", false);
+                    await System.Threading.Tasks.Task.Delay(500);
+                }
+            }
+            foreach (var typeName in new[] { "L", "R" })
             {
                 foreach (var mc in TypeMcsOrdered(panel, typeName, forward: false))
                 {
@@ -444,7 +467,6 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 if (DXMessageBox.Show($"{panel.Title}  {mc.Label} 을(를) {act} 하시겠습니까?", "MC 조작 확인",
                         MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                     return;
-                if (mc.Load == LoadType.C) { RunCStageAsync(panel, mc, turnOn); return; }
                 mc.State = McState.CommWait;
                 ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, turnOn);
                 AddHistory(panel.Title, $"{mc.Label} {(turnOn ? "ON" : "OFF")}", "성공");
@@ -461,7 +483,6 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 if (DXMessageBox.Show($"[자동운전 중] {panel.Title}  {mc.Label} 을(를) 강제 개방합니다.\n계속하시겠습니까?",
                         "MC 강제 개방 확인", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                     return;
-                if (mc.Load == LoadType.C) { RunCStageAsync(panel, mc, false); return; }
                 mc.State = McState.CommWait;
                 ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, false);
                 AddHistory(panel.Title, $"[자동] {mc.Label} 강제 개방", "성공");
@@ -472,15 +493,69 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             }
         }
 
-        private async void RunCStageAsync(PanelViewModel panel, McViewModel mc, bool on)
+        // ── C-stage toggle ────────────────────────────────────────────────────
+        // PLC가 내부 시퀀스(MC1→SCR→MC2) 담당. HMI는 C{n}_CMD 단일 신호만 전송.
+        // 결과는 RESULT DI로 수신 → 확인되면 "성공", 타임아웃이면 "진행중" 유지 + 알람.
+
+        private async void OnCStageToggle(PanelViewModel panel, CStageViewModel cs)
         {
-            int stage = mc.Label.EndsWith("2") ? 2 : 1;
-            mc.State = McState.CommWait;
-            bool ok = await ServiceHub.CLoad.RunAsync(panel.Index, stage, on);
-            mc.State = ok ? (on ? McState.On : McState.Off) : McState.Alarm;
-            panel.RefreshActiveCapacity();
-            AddHistory(panel.Title, $"C{stage} {(on ? "투입 시퀀스" : "개방 시퀀스")} {(ok ? "완료" : "실패")}", ok ? "성공" : "실패");
-            if (!ok) AddAlarm(panel.Title, $"C{stage} 시퀀스 타임아웃 / 인터락 실패", AlarmLevel.Alarm);
+            if (!panel.IsConnected)
+            {
+                DXMessageBox.Show($"{panel.Title} 미연결 상태입니다.", "안내", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (!IsManual)
+            {
+                DXMessageBox.Show("C부하는 수동 모드에서만 UI에서 조작할 수 있습니다.", "조작 불가",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            bool turnOn = !cs.IsRunning;
+            if (turnOn && !panel.MccbOn)
+            {
+                DXMessageBox.Show($"{panel.Title} MCCB가 OFF 상태입니다.\nMCCB를 먼저 투입하세요.", "C부하 투입 불가",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            string act = turnOn ? "투입(ON)" : "개방(OFF)";
+            if (DXMessageBox.Show($"{panel.Title}  {cs.Label} 을(를) {act} 하시겠습니까?", "C부하 조작 확인",
+                    MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                return;
+
+            // 이력 "진행중"으로 먼저 등록 → C_RESULT 피드백 확인 후 "성공"으로 갱신
+            var entry      = AddHistory(panel.Title, $"{cs.Label} {act}", "진행중");
+            string resTtag = $"{cs.Tag}_RESULT";
+            ServiceHub.Plc.WriteMcCommand(panel.Index, $"{cs.Tag}_CMD", turnOn);
+
+            // C_RESULT DI 피드백 대기 (T=동작, F=멈춤)
+            const int timeoutMs = 5000;
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<McFeedback> handler = (s, fb) =>
+            {
+                if (fb.PanelIndex == panel.Index && fb.McTag == resTtag && fb.On == turnOn)
+                    tcs.TrySetResult(true);
+            };
+            _subscribedPlc.FeedbackReceived += handler;
+            try
+            {
+                // 이미 원하는 상태면 즉시 성공 (동일 상태 쓰기 → 코일 변화 없음)
+                if (cs.IsRunning == turnOn) tcs.TrySetResult(true);
+
+                if (await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs)) == tcs.Task)
+                {
+                    entry.Result = "성공";
+                }
+                else
+                {
+                    entry.Result = "실패";
+                    AddAlarm(panel.Title, $"{cs.Label} {act} 피드백 타임아웃", AlarmLevel.Alarm);
+                }
+            }
+            finally
+            {
+                _subscribedPlc.FeedbackReceived -= handler;
+            }
         }
 
         // ── Manual load control ───────────────────────────────────────────────
@@ -573,12 +648,25 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             _rlcOffSignaled = false;
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
-                foreach (var mc in TypeMcsOrdered(p, type, forward: true))
+                if (type == "C")
                 {
-                    ct.ThrowIfCancellationRequested();
-                    mc.State = McState.CommWait;
-                    ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, true);
-                    await Task.Delay(1000, ct);
+                    foreach (var cs in CStagesOrdered(p, true))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (cs.IsRunning) continue;
+                        ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", true);
+                        await Task.Delay(1000, ct);
+                    }
+                }
+                else
+                {
+                    foreach (var mc in TypeMcsOrdered(p, type, forward: true))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        mc.State = McState.CommWait;
+                        ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, true);
+                        await Task.Delay(1000, ct);
+                    }
                 }
             }
         }
@@ -588,31 +676,38 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
-                foreach (var mc in TypeMcsOrdered(p, type, forward: false))
+                if (type == "C")
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (mc.State == McState.Off) continue;
-                    mc.State = McState.CommWait;
-                    p.RefreshActiveCapacity();
-                    ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
-                    await Task.Delay(1000, ct);
+                    foreach (var cs in CStagesOrdered(p, false))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (!cs.IsRunning) continue;
+                        ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", false);
+                        await Task.Delay(1000, ct);
+                    }
+                }
+                else
+                {
+                    foreach (var mc in TypeMcsOrdered(p, type, forward: false))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (mc.State == McState.Off) continue;
+                        mc.State = McState.CommWait;
+                        p.RefreshActiveCapacity();
+                        ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
+                        await Task.Delay(1000, ct);
+                    }
                 }
             }
             _rlcOffSignaled = true;
             RefreshRlcState();
         }
 
-        // 타입별 MC를 정방향/역방향으로 반환
+        // R/L MC를 정방향/역방향으로 반환 (C부하는 별도 CStagesOrdered 사용)
         // PNL-1 R/L: forward=RN→SN→TN 순, backward=TN→SN→RN 순, 각 그룹 내 스텝도 동일 방향
-        // PNL-2/3 및 C: 단일 그룹 또는 CSteps, 스텝 방향만 적용
+        // PNL-2/3: 단일 그룹, 스텝 방향만 적용
         private static IEnumerable<McViewModel> TypeMcsOrdered(PanelViewModel p, string type, bool forward)
         {
-            if (type == "C")
-            {
-                var cList = p.CSteps.ToList();
-                if (!forward) cList.Reverse();
-                return cList;
-            }
             var groups = (type == "R" ? p.RGroups : p.LGroups).ToList();
             if (!forward) groups.Reverse();
             var result = new List<McViewModel>();
@@ -623,6 +718,13 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 result.AddRange(items);
             }
             return result;
+        }
+
+        private static IEnumerable<CStageViewModel> CStagesOrdered(PanelViewModel p, bool forward)
+        {
+            var list = p.CSteps.ToList();
+            if (!forward) list.Reverse();
+            return list;
         }
 
         private void Mccb(string kind)
@@ -739,8 +841,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                             steps.Add(new AutoStep { PanelIndex = p.Index, Load = load, Value = mc.Value, Tags = new[] { mc.Tag } });
                     }
                 }
-                foreach (var c in p.CSteps)
-                    steps.Add(new AutoStep { PanelIndex = p.Index, Load = LoadType.C, Value = c.Value, Tags = new[] { c.Tag } });
+                foreach (var cs in p.CSteps)
+                    steps.Add(new AutoStep { PanelIndex = p.Index, Load = LoadType.C, Value = cs.Value, Tags = new[] { cs.Tag } });
             }
             return steps;
         }
@@ -756,31 +858,44 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
                 if (!p.MccbOn) continue;
-                foreach (var typeName in new[] { "R", "L", "C" })
+                foreach (var typeName in new[] { "R", "L" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: true))
                     {
                         ct.ThrowIfCancellationRequested();
-                        if (!on.Contains(mc.Tag)) continue;    // 계획 외 MC 건너뜀
-                        if (mc.State == McState.On) continue;  // 이미 ON
-                        if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, true); continue; }
+                        if (!on.Contains(mc.Tag)) continue;
+                        if (mc.State == McState.On) continue;
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, true);
                         await Task.Delay(1000, ct);
                     }
+                }
+                foreach (var cs in CStagesOrdered(p, true))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!on.Contains(cs.Tag)) continue;
+                    if (cs.IsRunning) continue;
+                    ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", true);
+                    await Task.Delay(1000, ct);
                 }
             }
 
             // 개방: 현재 ON이지만 계획에 없는 MC, C→L→R 역순 (선택된 판넬만)
             foreach (var p in GetTargetPanels().OrderBy(p => p.Index))
             {
-                foreach (var typeName in new[] { "C", "L", "R" })
+                foreach (var cs in CStagesOrdered(p, false))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (on.Contains(cs.Tag) || !cs.IsRunning) continue;
+                    ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", false);
+                    await Task.Delay(1000, ct);
+                }
+                foreach (var typeName in new[] { "L", "R" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
                         ct.ThrowIfCancellationRequested();
                         if (on.Contains(mc.Tag) || mc.State != McState.On) continue;
-                        if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, false); continue; }
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
                         await Task.Delay(1000, ct);
@@ -797,7 +912,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
             {
-                foreach (var typeName in new[] { "C", "L", "R" })
+                foreach (var cs in CStagesOrdered(p, false))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!cs.IsRunning) continue;
+                    ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", false);
+                    await Task.Delay(1000, ct);
+                }
+                foreach (var typeName in new[] { "L", "R" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
@@ -819,7 +941,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             if (IsSequenceRunning) { ShowSequenceRunningMessage(); return; }
             var targets = GetTargetPanels().ToList();
-            bool anyOn = targets.Any(p => p.AllMcs.Any(m => m.State == McState.On));
+            bool anyOn = targets.Any(p => p.AllMcs.Any(m => m.State == McState.On) || p.CSteps.Any(cs => cs.IsRunning));
             if (!anyOn)
             {
                 string panelName = SelectedAutoPanel?.Title ?? "전체 판넬";
@@ -842,16 +964,21 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private async Task TerminateAsync(IEnumerable<PanelViewModel> panels, CancellationToken ct)
         {
-            string panelLabel = SelectedAutoPanel?.Title ?? "전체";
             foreach (var p in panels.OrderBy(p => p.Index))
             {
-                foreach (var typeName in new[] { "C", "L", "R" })
+                foreach (var cs in CStagesOrdered(p, false))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!cs.IsRunning) continue;
+                    ServiceHub.Plc.WriteMcCommand(p.Index, $"{cs.Tag}_CMD", false);
+                    await Task.Delay(1000, ct);
+                }
+                foreach (var typeName in new[] { "L", "R" })
                 {
                     foreach (var mc in TypeMcsOrdered(p, typeName, forward: false))
                     {
                         ct.ThrowIfCancellationRequested();
                         if (mc.State == McState.Off) continue;
-                        if (mc.Load == LoadType.C) { RunCStageAsync(p, mc, false); continue; }
                         mc.State = McState.CommWait;
                         ServiceHub.Plc.WriteMcCommand(p.Index, mc.Tag, false);
                         await Task.Delay(1000, ct);

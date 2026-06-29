@@ -148,7 +148,7 @@
                             <TextBlock Text="C 부하" Foreground="{StaticResource BlueBrush}" Style="{StaticResource LoadBoxHeader}"/>
                             <ItemsControl ItemsSource="{Binding CSteps}">
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource McCircle}"/></DataTemplate></ItemsControl.ItemTemplate>
+                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource CStageBlock}"/></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
                     </Border>
