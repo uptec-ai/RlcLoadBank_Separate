@@ -6,6 +6,7 @@ using DevExpress.Mvvm;
 using RLC_LoadBank_SeparateVer.Models;
 using RLC_LoadBank_SeparateVer.Services;
 using SciChart.Charting.Model.DataSeries;
+using SciChart.Data.Model;
 
 namespace RLC_LoadBank_SeparateVer.ViewModels
 {
@@ -55,6 +56,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         // FIFO: 1m=60pts(1h history), 1h=24pts(1d history), 1day=7pts(1w history)
         private readonly XyDataSeries<DateTime, double>[][] _delta;
 
+        // X축 슬라이딩 창 크기 (SelectedPeriod의 10포인트 분량)
+        private TimeSpan _xWindowSize = TimeSpan.FromMinutes(10);
+
         // ── Panel selector ────────────────────────────────────────────────────
         public ObservableCollection<PanelSelectItem> Panels { get; }
 
@@ -92,8 +96,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public XyDataSeries<DateTime, double> Pnl3DeltaSeries
         { get => GetValue<XyDataSeries<DateTime, double>>(); set => SetValue(value); }
 
-        public string DeltaChartTitle  { get => GetValue<string>(); set => SetValue(value); }
-        public string DeltaXAxisFormat { get => GetValue<string>(); set => SetValue(value); }
+        public string    DeltaChartTitle  { get => GetValue<string>();    set => SetValue(value); }
+        public string    DeltaXAxisFormat { get => GetValue<string>();    set => SetValue(value); }
+        // X축 VisibleRange: delta append 시 갱신하여 최신 10포인트 창으로 슬라이딩
+        public DateRange DeltaXRange      { get => GetValue<DateRange>(); set => SetValue(value); }
 
         // GIMAC connection dots in trend legend
         public bool Pnl1GimacConnected { get => GetValue<bool>(); set => SetValue(value); }
@@ -138,7 +144,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             }
 
             SelectedPanel  = Panels[0];
-            SelectedPeriod = "1m";
+            SelectedPeriod = "1m";   // → OnPeriodChanged() sets _xWindowSize
+
+            // Initial X range: empty state placeholder until first data arrives
+            DeltaXRange = new DateRange(now.AddMinutes(-10), now.AddMinutes(1));
 
             SyncGimacStates();
             ServiceHub.Metering.ConnectionChanged += OnConnectionChanged;
@@ -213,6 +222,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 {
                     var m = minQ.ToArray();
                     _delta[0][idx].Append(ts, m[m.Length - 1].kw - m[m.Length - 2].kw);
+                    UpdateXAxisRange(ts, 0);
                 }
 
                 // ── 1-hour aggregate (time-based) ─────────────────────────────
@@ -235,6 +245,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     {
                         var h = hourQ.ToArray();
                         _delta[1][idx].Append(ts, h[h.Length - 1].kw - h[h.Length - 2].kw);
+                        UpdateXAxisRange(ts, 1);
                     }
 
                     // ── 1-day aggregate (time-based) ──────────────────────────
@@ -257,6 +268,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         {
                             var d = dayQ.ToArray();
                             _delta[2][idx].Append(ts, d[d.Length - 1].kw - d[d.Length - 2].kw);
+                            UpdateXAxisRange(ts, 2);
                         }
                     }
                 }
@@ -394,6 +406,26 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 "1day" => "MM/dd HH:mm",
                 _      => "HH:mm",
             };
+            // 슬라이딩 창 크기: 기간별 10포인트 분량
+            _xWindowSize = SelectedPeriod switch
+            {
+                "1h"   => TimeSpan.FromHours(10),
+                "1day" => TimeSpan.FromDays(10),
+                _      => TimeSpan.FromMinutes(10),
+            };
+            // 기간 전환 시 X축 즉시 재조정
+            UpdateXAxisRange(DateTime.Now, SelectedPeriod switch { "1h" => 1, "1day" => 2, _ => 0 }, force: true);
+        }
+
+        // ── X-axis sliding window ─────────────────────────────────────────────
+
+        // 선택된 기간의 delta가 append될 때마다 호출.
+        // force=true이면 기간 전환 즉시 강제 갱신.
+        private void UpdateXAxisRange(DateTime latest, int periodIdx, bool force = false)
+        {
+            int selectedP = SelectedPeriod switch { "1h" => 1, "1day" => 2, _ => 0 };
+            if (!force && periodIdx != selectedP) return;
+            DeltaXRange = new DateRange(latest - _xWindowSize, latest.AddSeconds(5));
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────

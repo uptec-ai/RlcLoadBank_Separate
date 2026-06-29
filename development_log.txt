@@ -104,4 +104,12 @@
                     ② Point Marker 추가: EllipsePointMarker(8×8) Fill=시리즈색, Stroke=White 1.5px
                        PNL-1 #E04F4F / PNL-2 #27A86A / PNL-3 #4B7BF5
 
+[2026-06-29 ①]     MeteringView 델타 트렌드 X축 자동 스크롤 + Modifier 정상화 (MeteringView.xaml · MeteringViewModel.cs)
+                    ZoomPan/MouseWheel 미동작 원인: AutoRange="Always/Once" 충돌.
+                    ScrollingViewportManager는 SciChart v9.0.0.29196에 없음 → DateRange VisibleRange 바인딩 방식으로 대체.
+                    수정: AutoRange="Never" + VisibleRange="{Binding DeltaXRange, Mode=TwoWay}"
+                    DeltaXRange: delta append 시(기간 10포인트 창 = 1m→10min / 1h→10h / 1day→10d)만 슬라이딩 갱신.
+                    신규 데이터 도착 시 자동 스크롤, 줌인/아웃으로 FIFO 이전 데이터 탐색, 더블클릭 전체 복원.
+                    _xWindowSize(TimeSpan) 프라이빗 필드 + UpdateXAxisRange(DateTime, int, bool) 메서드 추가.
+
 ================================================================================

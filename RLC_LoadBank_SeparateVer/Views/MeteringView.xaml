@@ -70,7 +70,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal">
                 <TextBlock Text="계측 현황" FontSize="20" FontWeight="Bold"
                            Foreground="{StaticResource HeaderText}" VerticalAlignment="Center"/>
-                <TextBlock Text="GIMAC 1000 (BUS) · EOCR-iSEM2 + sPDM (#1–#10)"
+                <TextBlock Text="GIMAC 1000 · EOCR-iSEM2 + sPDM (#1–#10)"
                            FontSize="12" Foreground="{StaticResource SubInkBrush}"
                            VerticalAlignment="Center" Margin="12,4,0,0"/>
             </StackPanel>
@@ -370,7 +370,11 @@
                         </s:FastLineRenderableSeries>
                     </s:SciChartSurface.RenderableSeries>
                     <s:SciChartSurface.XAxes>
-                        <s:DateTimeAxis AutoRange="Always"
+                        <!-- AutoRange="Never" + VisibleRange TwoWay:
+                             ViewModel이 delta append 시 DeltaXRange를 슬라이딩 → 자동 스크롤.
+                             ZoomPan/MouseWheel로 이전 데이터 탐색, 더블클릭으로 전체 복원. -->
+                        <s:DateTimeAxis AutoRange="Never"
+                                        VisibleRange="{Binding DeltaXRange, Mode=TwoWay}"
                                         TextFormatting="{Binding DeltaXAxisFormat}"
                                         DrawMajorGridLines="False"
                                         DrawMinorGridLines="False"
@@ -381,6 +385,7 @@
                                         AxisTitle="Time"/>
                     </s:SciChartSurface.XAxes>
                     <s:SciChartSurface.YAxes>
+                        <!-- Y축은 Always 유지 → 데이터 범위에 따라 자동 스케일 -->
                         <s:NumericAxis AutoRange="Always"
                                        DrawMajorBands="False"
                                        DrawMajorTicks="False"
@@ -397,6 +402,8 @@
                                                 ShowAxisLabels="True"/>
                             <s:ZoomPanModifier ExecuteOn="MouseLeftButton"/>
                             <s:MouseWheelZoomModifier/>
+                            <!-- 더블클릭으로 전체 범위 복원 -->
+                            <s:ZoomExtentsModifier ExecuteOn="MouseDoubleClick"/>
                         </s:ModifierGroup>
                     </s:SciChartSurface.ChartModifier>
                 </s:SciChartSurface>
