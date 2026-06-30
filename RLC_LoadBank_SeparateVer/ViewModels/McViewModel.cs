@@ -62,7 +62,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public double Value { get; }   // 50 kVAr per stage
 
         // C_RESULT DI: T=running, F=stopped
-        public bool IsRunning { get => GetValue<bool>(); set => SetValue(value); }
+        public bool IsRunning  { get => GetValue<bool>(); set => SetValue(value); }
+
+        /// <summary>자동운전 계획 미리보기 — 투입 예정 스테이지 주황 테두리 표시.</summary>
+        public bool IsPlanned  { get => GetValue<bool>(); set => SetValue(value); }
 
         // Alarm DIs: T=alarm, F=normal
         public bool Mc1Alarm

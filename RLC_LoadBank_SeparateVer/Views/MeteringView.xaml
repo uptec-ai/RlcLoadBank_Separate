@@ -5,7 +5,7 @@
              xmlns:s="http://schemas.abtsoftware.co.uk/scichart"
              Background="#F4F7F9" FontFamily="Malgun Gothic">
     <UserControl.DataContext>
-        <vm:MeteringViewModel/>
+        <vm:MeteringViewModel/>`
     </UserControl.DataContext>
 
     <UserControl.Resources>

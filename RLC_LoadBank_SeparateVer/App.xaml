@@ -121,7 +121,7 @@
                         <ControlTemplate TargetType="Button">
                             <StackPanel HorizontalAlignment="Center">
                                 <Grid Width="30" Height="30" HorizontalAlignment="Center">
-                                    <Ellipse x:Name="ring" Fill="White" Stroke="#9E9E9E" StrokeThickness="2.5"/>
+                                    <Ellipse x:Name="ring" Fill="White" Stroke="#B1B8C2" StrokeThickness="2.5"/>
                                     <TextBlock Text="{Binding Label}" FontSize="10"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{StaticResource InkBrush}"/>
@@ -154,6 +154,15 @@
                                 <DataTrigger Binding="{Binding Mc2Alarm}" Value="True">
                                     <Setter TargetName="dotMc2" Property="Fill" Value="#E53935"/>
                                 </DataTrigger>
+                                <!-- 자동운전 계획 미리보기: 정지 상태의 예정 스테이지를 주황 테두리/배경으로 표시 -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsPlanned}" Value="True"/>
+                                        <Condition Binding="{Binding IsRunning}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#E8943A"/>
+                                    <Setter TargetName="ring" Property="Fill"   Value="#FBF0E5"/>
+                                </MultiDataTrigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="ring" Property="StrokeThickness" Value="3.5"/>
                                 </Trigger>

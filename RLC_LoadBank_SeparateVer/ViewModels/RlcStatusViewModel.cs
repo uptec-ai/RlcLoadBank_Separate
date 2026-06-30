@@ -240,6 +240,21 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             // C부하 RESULT / 알람 DI 피드백
             if (panel.TryApplyCFeedback(fb.McTag, fb.On))
             {
+                // MC1/MC2/SCR 알람 ON 전환 시 트립·알람 패널에도 표출
+                if (fb.On)
+                {
+                    string alarmKind = null;
+                    if      (fb.McTag.EndsWith("_MC1_FB")) alarmKind = "MC1";
+                    else if (fb.McTag.EndsWith("_MC2_FB")) alarmKind = "MC2";
+                    else if (fb.McTag.EndsWith("_SCR_FB")) alarmKind = "SCR";
+
+                    if (alarmKind != null)
+                    {
+                        var cs = panel.CSteps.FirstOrDefault(c => fb.McTag.StartsWith(c.Tag + "_"));
+                        string label = cs?.Label ?? fb.McTag;
+                        AddAlarm(panel.Title, $"{label} {alarmKind} 알람 발생", AlarmLevel.Alarm);
+                    }
+                }
                 RefreshRlcState();
                 return;
             }
@@ -451,6 +466,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 DXMessageBox.Show($"{panel.Title} 미연결 상태입니다.", "안내", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            if (!CanOperate) return;   // 미확인 알람 존재 시 개별 MC 조작 차단
             if (mc.State == McState.CommWait) return;
 
             if (IsManual)
@@ -504,6 +520,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 DXMessageBox.Show($"{panel.Title} 미연결 상태입니다.", "안내", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            if (!CanOperate) return;   // 미확인 알람 존재 시 C-stage 조작 차단
             if (!IsManual)
             {
                 DXMessageBox.Show("C부하는 수동 모드에서만 UI에서 조작할 수 있습니다.", "조작 불가",
@@ -1024,15 +1041,23 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var plan = ServiceHub.Auto.Preview(ComputeTargets(), BuildAutoSteps());
             var onSet = new HashSet<string>(plan.OnTags);
             foreach (var p in Panels)
+            {
                 foreach (var mc in p.AllMcs)
                     mc.IsPlanned = onSet.Contains(mc.Tag);
+                foreach (var cs in p.CSteps)
+                    cs.IsPlanned = onSet.Contains(cs.Tag);
+            }
         }
 
         private void ClearPreview()
         {
             foreach (var p in Panels)
+            {
                 foreach (var mc in p.AllMcs)
                     mc.IsPlanned = false;
+                foreach (var cs in p.CSteps)
+                    cs.IsPlanned = false;
+            }
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
