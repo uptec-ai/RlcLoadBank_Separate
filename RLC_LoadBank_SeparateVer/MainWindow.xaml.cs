@@ -43,7 +43,7 @@ namespace RLC_LoadBank_SeparateVer
             Btn_Dashboard.IsSelected = ReferenceEquals(button, Btn_Dashboard);
             Btn_SystemStatus.IsSelected = ReferenceEquals(button, Btn_SystemStatus);
             Btn_History.IsSelected = ReferenceEquals(button, Btn_History);
-            NaviFrame.Navigate(view);
+            NaviFrame.Content = view;
         }
 
         private void Btn_Dashboard_Click(object sender, RoutedEventArgs e) => Select(Btn_Dashboard, App.HomeView);

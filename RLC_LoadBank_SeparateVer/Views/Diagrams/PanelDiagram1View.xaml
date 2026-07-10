@@ -34,10 +34,10 @@
                             <Border CornerRadius="6" Padding="0,3" Margin="0,8,0,0" Width="64">
                                 <Grid>
                                     <Border CornerRadius="6" Background="#27A86A" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}}">
-                                        <TextBlock Text="MCCB1  ON" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                        <TextBlock Text="MCCB  ON" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
                                     </Border>
                                     <Border CornerRadius="6" Background="#ADB4BF" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
-                                        <TextBlock Text="MCCB1  OFF" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                        <TextBlock Text="MCCB  OFF" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
                                     </Border>
                                 </Grid>
                             </Border>

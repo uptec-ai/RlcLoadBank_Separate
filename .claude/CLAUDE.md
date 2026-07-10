@@ -58,6 +58,14 @@ you edit that View. When you create a new View `FooView`:
 3. Fill in purpose, bound data, Modbus tags, measurement items, and gotchas.
 When editing an existing View, you only need that View's `.md` — do not read the others.
 
+## Skill usage
+- Registered skills live in `.claude/skills/{name}/SKILL.md`.
+- When the user's prompt matches a registered skill's purpose, **ask whether to
+  use the skill before proceeding** — do not silently skip it.
+- Comparison is based on each skill's `description` field (already loaded in
+  system context); do not read the full SKILL.md on every prompt.
+- Example: "PlcProtocol.cs와 Excel이 일치하는지 확인해줘" → propose `sync-protocol`.
+
 ## Boundaries
 - **Stay inside this workspace.** If a change must touch files outside this
   folder (e.g. `~/.claude/`), **ask first**.

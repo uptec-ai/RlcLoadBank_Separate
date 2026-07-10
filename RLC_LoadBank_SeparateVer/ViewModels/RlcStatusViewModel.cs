@@ -237,7 +237,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 return;
             }
 
-            // C부하 RESULT / 알람 DI 피드백
+            // C부하 RESULT / MC1·MC2·SCR 상태 DI 피드백
             if (panel.TryApplyCFeedback(fb.McTag, fb.On))
             {
                 // MC1/MC2/SCR 알람 ON 전환 시 트립·알람 패널에도 표출
@@ -540,7 +540,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
-            // 이력 "진행중"으로 먼저 등록 → C_RESULT 피드백 확인 후 "성공"으로 갱신
+            // 이력 "진행중" 등록 → C_RESULT 피드백 확인 시 "성공"으로 갱신
             var entry      = AddHistory(panel.Title, $"{cs.Label} {act}", "진행중");
             string resTtag = $"{cs.Tag}_RESULT";
             ServiceHub.Plc.WriteMcCommand(panel.Index, $"{cs.Tag}_CMD", turnOn);

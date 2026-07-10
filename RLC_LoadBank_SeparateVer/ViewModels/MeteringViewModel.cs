@@ -86,7 +86,9 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             get => GetValue<string>();
             set { SetValue(value); OnPeriodChanged(); }
         }
-        public DelegateCommand<string> SelectPeriodCommand { get; }
+        public DelegateCommand<string> SelectPeriodCommand  { get; }
+        /// <summary>더블클릭 시 현재 슬라이딩 창(_xWindowSize, 10포인트)으로 X축 리셋 — 전체 FIFO 표시 방지.</summary>
+        public DelegateCommand        ResetDeltaZoomCommand { get; }
 
         // Exposed series — swapped on period change
         public XyDataSeries<DateTime, double> Pnl1DeltaSeries
@@ -132,7 +134,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     };
             }
 
-            SelectPeriodCommand = new DelegateCommand<string>(p => SelectedPeriod = p);
+            SelectPeriodCommand   = new DelegateCommand<string>(p => SelectedPeriod = p);
+            ResetDeltaZoomCommand = new DelegateCommand(() =>
+            {
+                int pi = SelectedPeriod switch { "1h" => 1, "1day" => 2, _ => 0 };
+                UpdateXAxisRange(DateTime.Now, pi, force: true);
+            });
 
             // Init time trackers so aggregation starts after first full period
             var now = DateTime.Now;

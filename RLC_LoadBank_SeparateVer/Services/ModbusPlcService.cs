@@ -24,7 +24,7 @@ namespace RLC_LoadBank_SeparateVer.Services
         /// false = ReadCoils (FC1) — test Modbus server that echoes coil writes.
         /// true  = ReadInputs (FC2) — production PLC (DI / DO are separate address spaces).
         /// </summary>
-        public static bool UseDiscreteInputsForFeedback = true;
+        public static bool UseDiscreteInputsForFeedback = false;
 
         private class PanelState
         {
