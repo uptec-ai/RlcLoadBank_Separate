@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using DevExpress.Mvvm;
 using RLC_LoadBank_SeparateVer.Models;
 
@@ -26,11 +27,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public string ControlMode { get; }
         public bool   IsSinglePhase { get; }
 
-        public ObservableCollection<McGroupViewModel> RGroups { get; } = new ObservableCollection<McGroupViewModel>();
-        public ObservableCollection<McGroupViewModel> LGroups { get; } = new ObservableCollection<McGroupViewModel>();
-        public ObservableCollection<McViewModel>      CSteps  { get; } = new ObservableCollection<McViewModel>();
+        public ObservableCollection<McGroupViewModel>  RGroups { get; } = new ObservableCollection<McGroupViewModel>();
+        public ObservableCollection<McGroupViewModel>  LGroups { get; } = new ObservableCollection<McGroupViewModel>();
+        public ObservableCollection<CStageViewModel>   CSteps  { get; } = new ObservableCollection<CStageViewModel>();
 
-        public Action<PanelViewModel, McViewModel> McToggleRequested;
+        public Action<PanelViewModel, McViewModel>      McToggleRequested;
+        public Action<PanelViewModel, CStageViewModel>  CStageToggleRequested;
 
         // ── 연결 상태 ────────────────────────────────────────────────────────
 
@@ -78,6 +80,46 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         /// <summary>어떤 보호 기능이라도 동작 중이면 true (알람 칩용)</summary>
         public bool HasFault => OvrFault || OcrFault || HtFault || MccbTrip;
 
+        // ── GIMAC 계측 데이터 (500ms 폴링, OnGimacDataReceived → ApplyGimacReading) ──
+
+        /// <summary>GIMAC 표시 레이블 (e.g. "GIMAC 1")</summary>
+        public string GimacLabel => $"GIMAC {Index + 1}";
+
+        public bool   GimacConnected    { get => GetValue<bool>();   set => SetValue(value); }
+        public double GimacVoltage      { get => GetValue<double>(); set => SetValue(value); }  // V
+        public double GimacCurrent      { get => GetValue<double>(); set => SetValue(value); }  // A
+        public double GimacActivePower  { get => GetValue<double>(); set => SetValue(value); }  // kW
+        public double GimacReactivePower{ get => GetValue<double>(); set => SetValue(value); }  // kVAr
+        public double GimacFrequency    { get => GetValue<double>(); set => SetValue(value); }  // Hz
+
+        // ── 현재 투입된 R/L/C 용량 (MC 상태 기반, RefreshActiveCapacity() 호출 시 갱신) ──
+
+        /// <summary>현재 ON 상태 R 부하 합산 (kW). PLC1=3상 합, PLC2/3=3상 일괄.</summary>
+        public double ActiveRkW   { get => GetValue<double>(); set => SetValue(value); }
+        /// <summary>현재 ON 상태 L 리액터 합산 (kVAr).</summary>
+        public double ActiveLkVar { get => GetValue<double>(); set => SetValue(value); }
+        /// <summary>현재 ON 상태 C 부하 합산 (kVAr).</summary>
+        public double ActiveCkVar { get => GetValue<double>(); set => SetValue(value); }
+
+        /// <summary>MC / C-stage 상태 변경 시 RlcStatusViewModel에서 호출.</summary>
+        public void RefreshActiveCapacity()
+        {
+            ActiveRkW   = RGroups.Sum(g => g.Items.Where(m => m.State == McState.On).Sum(m => m.Value));
+            ActiveLkVar = LGroups.Sum(g => g.Items.Where(m => m.State == McState.On).Sum(m => m.Value));
+            ActiveCkVar = CSteps.Where(cs => cs.IsRunning).Sum(cs => cs.Value);
+        }
+
+        /// <summary>GIMAC 폴링 데이터를 패널 프로퍼티에 반영.</summary>
+        public void ApplyGimacReading(GimacReading r)
+        {
+            GimacConnected     = true;
+            GimacVoltage       = r.AvgVoltage;
+            GimacCurrent       = r.AvgCurrent;
+            GimacActivePower   = r.ActivePower   / 1000.0;
+            GimacReactivePower = r.ReactivePower / 1000.0;
+            GimacFrequency     = r.Frequency;
+        }
+
         // ── 생성자 ───────────────────────────────────────────────────────────
 
         public PanelViewModel(int index, string title, bool singlePhase, bool connected)
@@ -107,12 +149,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 LGroups.Add(MakeSteps("L", null));
             }
             for (int s = 1; s <= 2; s++)
-            {
-                var mc = new McViewModel($"P{Index + 1}_C{s}", $"C{s}", OnToggle)
-                { Load = LoadType.C, Value = CStageKVar };
-                CSteps.Add(mc);
-                _byTag[mc.Tag] = mc;
-            }
+                CSteps.Add(new CStageViewModel($"P{Index + 1}_C{s}", $"C{s}", OnCStageToggle));
         }
 
         private McGroupViewModel MakeSteps(string load, string phase)
@@ -134,7 +171,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             return g;
         }
 
-        private void OnToggle(McViewModel mc) => McToggleRequested?.Invoke(this, mc);
+        private void OnToggle(McViewModel mc)          => McToggleRequested?.Invoke(this, mc);
+        private void OnCStageToggle(CStageViewModel cs) => CStageToggleRequested?.Invoke(this, cs);
 
         public McViewModel FindMc(string tag) =>
             _byTag.TryGetValue(tag, out var mc) ? mc : null;
@@ -156,6 +194,19 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             if (fbTag == $"P{p}_LOC_REM_FB")    { IsRemote  = on; return; }
             if (fbTag == $"P{p}_FAN_FB")        { FanOk     = on; return; }
             if (fbTag == $"P{p}_PWR_380_FB")    { Pwr380Ok  = on; return; }
+        }
+
+        /// <summary>C부하 피드백 태그를 CStageViewModel에 라우팅한다. 처리되면 true 반환.</summary>
+        public bool TryApplyCFeedback(string tag, bool on)
+        {
+            foreach (var cs in CSteps)
+            {
+                if (tag == $"{cs.Tag}_RESULT") { cs.IsRunning = on; RefreshActiveCapacity(); return true; }
+                if (tag == $"{cs.Tag}_MC1_FB") { cs.Mc1Alarm = on; return true; }
+                if (tag == $"{cs.Tag}_MC2_FB") { cs.Mc2Alarm = on; return true; }
+                if (tag == $"{cs.Tag}_SCR_FB") { cs.ScrAlarm = on; return true; }
+            }
+            return false;
         }
     }
 }

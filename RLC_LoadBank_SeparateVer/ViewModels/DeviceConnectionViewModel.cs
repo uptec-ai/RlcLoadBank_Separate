@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using DevExpress.Mvvm;
@@ -63,6 +64,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         public event EventHandler RequestClose;
 
+        private readonly CancellationTokenSource _probeCts = new();
+
         public DelegateCommand ConnectSelectedCommand    { get; }
         public DelegateCommand DisconnectSelectedCommand { get; }
         public DelegateCommand ApplyAllCommand           { get; }
@@ -93,6 +96,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             ServiceHub.Plc.ConnectionChanged      += OnPlcConnectionChanged;
             ServiceHub.Metering.ConnectionChanged += OnMeteringConnectionChanged;
             _ = ProbeUnconnectedAsync();
+            _ = ReprobePeriodicallyAsync(_probeCts.Token);
 
             ServerIp = "127.0.0.1"; ServerPort = 7000; ServerRunning = true;
 
@@ -157,6 +161,20 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         d.State = ok ? ConnState.Idle : ConnState.Disconnected;
                 });
             })));
+        }
+
+        // 5초마다 비연결 장비를 재탐색 → 장비 켜짐/꺼짐을 실시간 반영
+        private async Task ReprobePeriodicallyAsync(CancellationToken ct)
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(5000, ct);
+                    await ProbeUnconnectedAsync();
+                }
+            }
+            catch (OperationCanceledException) { }
         }
 
         // ── Connection event handlers ─────────────────────────────────────────
@@ -307,6 +325,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private void Close()
         {
+            _probeCts.Cancel();
+            _probeCts.Dispose();
             ServiceHub.Plc.ConnectionChanged      -= OnPlcConnectionChanged;
             ServiceHub.Metering.ConnectionChanged -= OnMeteringConnectionChanged;
             // MeteringService 자체는 닫지 않음 — 연결은 ServiceHub 싱글턴으로 유지

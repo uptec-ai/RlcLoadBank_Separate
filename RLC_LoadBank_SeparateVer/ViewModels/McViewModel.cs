@@ -18,6 +18,17 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public double Value { get; set; }
         public LoadType Load { get; set; }
 
+        /// <summary>Formatted capacity label shown below the MC ellipse (e.g. "5kW", "2.5kvar").</summary>
+        public string ValueText
+        {
+            get
+            {
+                if (Value == 0) return "";
+                string unit = Load == LoadType.R ? "kW" : "kvar";
+                return $"{Value:0.#}{unit}";
+            }
+        }
+
         public McState State
         {
             get => GetValue<McState>();
@@ -37,6 +48,51 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             _toggle = toggle;
             State = state;
             ToggleCommand = new DelegateCommand(() => _toggle?.Invoke(this));
+        }
+    }
+
+    /// <summary>
+    /// One C-load stage (C1 or C2). PLC handles the internal sequence (MC1→SCR→MC2).
+    /// HMI sends a single CMD and monitors RESULT + three alarm DIs.
+    /// </summary>
+    public class CStageViewModel : ViewModelBase
+    {
+        public string Tag   { get; }   // e.g. "P1_C1"
+        public string Label { get; }   // e.g. "C1"
+        public double Value { get; }   // 50 kVAr per stage
+
+        // C_RESULT DI: T=running, F=stopped
+        public bool IsRunning  { get => GetValue<bool>(); set => SetValue(value); }
+
+        /// <summary>자동운전 계획 미리보기 — 투입 예정 스테이지 주황 테두리 표시.</summary>
+        public bool IsPlanned  { get => GetValue<bool>(); set => SetValue(value); }
+
+        // Alarm DIs: T=alarm, F=normal
+        public bool Mc1Alarm
+        {
+            get => GetValue<bool>();
+            set => SetValue(value, () => RaisePropertyChanged(nameof(HasAlarm)));
+        }
+        public bool Mc2Alarm
+        {
+            get => GetValue<bool>();
+            set => SetValue(value, () => RaisePropertyChanged(nameof(HasAlarm)));
+        }
+        public bool ScrAlarm
+        {
+            get => GetValue<bool>();
+            set => SetValue(value, () => RaisePropertyChanged(nameof(HasAlarm)));
+        }
+        public bool HasAlarm => Mc1Alarm || Mc2Alarm || ScrAlarm;
+
+        public DelegateCommand ToggleCommand { get; }
+
+        public CStageViewModel(string tag, string label, Action<CStageViewModel> onToggle)
+        {
+            Tag   = tag;
+            Label = label;
+            Value = 50.0;
+            ToggleCommand = new DelegateCommand(() => onToggle?.Invoke(this));
         }
     }
 

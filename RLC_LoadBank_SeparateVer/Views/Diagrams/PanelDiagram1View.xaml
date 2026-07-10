@@ -22,8 +22,8 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- AC source + MCCB + feeders -->
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Padding="12,10" Background="#FBFCFE">
+                <StackPanel Grid.Column="0" VerticalAlignment="Top" Margin="0,0,7,0">
+                    <Border BorderBrush="{StaticResource CardBorder}" Width="100" BorderThickness="1" CornerRadius="8" Padding="0,10" Background="#FBFCFE">
                         <StackPanel HorizontalAlignment="Center">
                             <TextBlock Text="AC SOURCE" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center"/>
                             <TextBlock Text="3P4W / 380V / 60Hz" FontSize="10" Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Margin="0,1,0,6"/>
@@ -34,20 +34,72 @@
                             <Border CornerRadius="6" Padding="0,3" Margin="0,8,0,0" Width="64">
                                 <Grid>
                                     <Border CornerRadius="6" Background="#27A86A" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}}">
-                                        <TextBlock Text="MCCB1  ON" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                        <TextBlock Text="MCCB  ON" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
                                     </Border>
                                     <Border CornerRadius="6" Background="#ADB4BF" Visibility="{Binding MccbOn, Converter={StaticResource BoolVis}, ConverterParameter=invert}">
-                                        <TextBlock Text="MCCB1  OFF" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
+                                        <TextBlock Text="MCCB  OFF" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" Padding="0,3"/>
                                     </Border>
                                 </Grid>
                             </Border>
                         </StackPanel>
                     </Border>
-                    <StackPanel Margin="0,8,0,0">
-                        <TextBlock Text="R-N  L1" FontSize="11" Foreground="{StaticResource SubInkBrush}"/>
-                        <TextBlock Text="S-N  L2" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
-                        <TextBlock Text="T-N  L3" FontSize="11" Foreground="{StaticResource SubInkBrush}" Margin="0,2,0,0"/>
-                    </StackPanel>
+                    <!-- GIMAC 1 계측 카드 -->
+                    <Border Width="100" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                            CornerRadius="6" Padding="7,6" Margin="0,6,0,0" Background="#F8FAFE">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,3">
+                                <TextBlock Text="{Binding GimacLabel}" FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center"/>
+                                <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                         Fill="{Binding GimacConnected, Converter={StaticResource BoolToBgBrush}, ConverterParameter='#27A86A|#ADB4BF'}"/>
+                            </Grid>
+                            <!-- 투입 용량 -->
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="R" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource RedBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding ActiveRkW, StringFormat={}{0:F1}kW}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="L" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource OrangeBrush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding ActiveLkVar, StringFormat={}{0:F1}kvar}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="C" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BlueBrush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding ActiveCkVar, StringFormat={}{0:F1}kvar}"/>
+                            </Grid>
+                            <Separator Margin="0,1,0,2"/>
+                            <!-- GIMAC 계측값 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="V" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding GimacVoltage, StringFormat={}{0:F1}V}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="I" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding GimacCurrent, StringFormat={}{0:F1}A}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="P" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding GimacActivePower, StringFormat={}{0:F1}kW}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Q" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding GimacReactivePower, StringFormat={}{0:F1}kvar}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="f" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SubInkBrush}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" FontSize="9" Foreground="{StaticResource InkBrush}"
+                                           Text="{Binding GimacFrequency, StringFormat={}{0:F1}Hz}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- loads -->
@@ -96,7 +148,7 @@
                             <TextBlock Text="C 부하" Foreground="{StaticResource BlueBrush}" Style="{StaticResource LoadBoxHeader}"/>
                             <ItemsControl ItemsSource="{Binding CSteps}">
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource McCircle}"/></DataTemplate></ItemsControl.ItemTemplate>
+                                <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource CStageBlock}"/></DataTemplate></ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
                     </Border>

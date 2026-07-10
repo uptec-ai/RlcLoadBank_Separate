@@ -56,23 +56,28 @@
 
             <!-- MC circle button (diagram) -->
             <Style x:Key="McCircle" TargetType="Button">
-                <Setter Property="Width" Value="26"/>
-                <Setter Property="Height" Value="26"/>
-                <Setter Property="Margin" Value="2.5"/>
+                <Setter Property="Width" Value="34"/>
+                <Setter Property="Margin" Value="2"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Command" Value="{Binding ToggleCommand}"/>
                 <Setter Property="ToolTip" Value="{Binding Tag}"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Grid>
-                                <Ellipse x:Name="ring" Fill="White"
-                                         Stroke="{Binding State, Converter={StaticResource McBrush}}"
-                                         StrokeThickness="2.5"/>
-                                <TextBlock Text="{Binding Label}" FontSize="10.5"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{StaticResource InkBrush}"/>
-                            </Grid>
+                            <StackPanel HorizontalAlignment="Center">
+                                <Grid Width="26" Height="26" HorizontalAlignment="Center">
+                                    <Ellipse x:Name="ring" Fill="White"
+                                             Stroke="{Binding State, Converter={StaticResource McBrush}}"
+                                             StrokeThickness="2.5"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="10"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{StaticResource InkBrush}"/>
+                                </Grid>
+                                <TextBlock Text="{Binding ValueText}" FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{StaticResource SubInkBrush}"
+                                           Margin="0,1,0,0"/>
+                            </StackPanel>
                             <ControlTemplate.Triggers>
                                 <DataTrigger Binding="{Binding State}" Value="On">
                                     <Setter TargetName="ring" Property="Fill" Value="#E4F5EC"/>
@@ -94,6 +99,69 @@
                                     </MultiDataTrigger.Conditions>
                                     <Setter TargetName="ring" Property="Stroke" Value="#E8943A"/>
                                     <Setter TargetName="ring" Property="Fill" Value="#FBF0E5"/>
+                                </MultiDataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ring" Property="StrokeThickness" Value="3.5"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- C-stage block: IsRunning(동작), HasAlarm(알람), MC1/SCR/MC2 알람 도트 -->
+            <Style x:Key="CStageBlock" TargetType="Button">
+                <Setter Property="Width" Value="44"/>
+                <Setter Property="Margin" Value="2"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Command" Value="{Binding ToggleCommand}"/>
+                <Setter Property="ToolTip" Value="{Binding Label}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Grid Width="30" Height="30" HorizontalAlignment="Center">
+                                    <Ellipse x:Name="ring" Fill="White" Stroke="#B1B8C2" StrokeThickness="2.5"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="10"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{StaticResource InkBrush}"/>
+                                </Grid>
+                                <!-- 알람 도트: MC1 · SCR · MC2 -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
+                                    <Ellipse x:Name="dotMc1" Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                    <Ellipse x:Name="dotScr"  Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                    <Ellipse x:Name="dotMc2" Width="7" Height="7" Margin="1,0" Fill="Transparent"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <!-- 동작 중 -->
+                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                    <Setter TargetName="ring" Property="Fill"   Value="#E4F5EC"/>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#27A86A"/>
+                                </DataTrigger>
+                                <!-- 알람 발생 -->
+                                <DataTrigger Binding="{Binding HasAlarm}" Value="True">
+                                    <Setter TargetName="ring" Property="Fill"   Value="#FBE3E3"/>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#E53935"/>
+                                </DataTrigger>
+                                <!-- 개별 알람 도트 -->
+                                <DataTrigger Binding="{Binding Mc1Alarm}" Value="True">
+                                    <Setter TargetName="dotMc1" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ScrAlarm}" Value="True">
+                                    <Setter TargetName="dotScr" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Mc2Alarm}" Value="True">
+                                    <Setter TargetName="dotMc2" Property="Fill" Value="#E53935"/>
+                                </DataTrigger>
+                                <!-- 자동운전 계획 미리보기: 정지 상태의 예정 스테이지를 주황 테두리/배경으로 표시 -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsPlanned}" Value="True"/>
+                                        <Condition Binding="{Binding IsRunning}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="ring" Property="Stroke" Value="#E8943A"/>
+                                    <Setter TargetName="ring" Property="Fill"   Value="#FBF0E5"/>
                                 </MultiDataTrigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="ring" Property="StrokeThickness" Value="3.5"/>
