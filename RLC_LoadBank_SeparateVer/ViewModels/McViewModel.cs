@@ -61,6 +61,16 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public string Label { get; }   // e.g. "C1"
         public double Value { get; }   // 50 kVAr per stage
 
+        /// <summary>Formatted capacity label shown below the C-stage ellipse (e.g. "50kvar").</summary>
+        public string ValueText
+        {
+            get
+            {
+                if (Value == 0) return "";
+                return $"{Value:0.#}kvar";
+            }
+        }
+
         // C_RESULT DI: T=running, F=stopped
         public bool IsRunning  { get => GetValue<bool>(); set => SetValue(value); }
 
