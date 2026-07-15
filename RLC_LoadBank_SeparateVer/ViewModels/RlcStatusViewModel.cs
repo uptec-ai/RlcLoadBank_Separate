@@ -248,19 +248,25 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             // C부하 RESULT / MC1·MC2·SCR 상태 DI 피드백
             if (panel.TryApplyCFeedback(fb.McTag, fb.On))
             {
-                // MC1/MC2/SCR 알람 ON 전환 시 트립·알람 패널에도 표출
-                if (fb.On)
-                {
-                    string alarmKind = null;
-                    if      (fb.McTag.EndsWith("_MC1_FB")) alarmKind = "MC1";
-                    else if (fb.McTag.EndsWith("_MC2_FB")) alarmKind = "MC2";
-                    else if (fb.McTag.EndsWith("_SCR_FB")) alarmKind = "SCR";
+                string alarmKind = null;
+                if      (fb.McTag.EndsWith("_MC1_FB")) alarmKind = "MC1";
+                else if (fb.McTag.EndsWith("_MC2_FB")) alarmKind = "MC2";
+                else if (fb.McTag.EndsWith("_SCR_FB")) alarmKind = "SCR";
 
-                    if (alarmKind != null)
+                if (alarmKind != null)
+                {
+                    if (fb.On)
                     {
+                        // MC1/MC2/SCR 알람 ON 전환 시 트립·알람 패널에도 표출
                         var cs = panel.CSteps.FirstOrDefault(c => fb.McTag.StartsWith(c.Tag + "_"));
                         string label = cs?.Label ?? fb.McTag;
-                        AddAlarm(panel.Title, $"{label} {alarmKind} 알람 발생", AlarmLevel.Alarm);
+                        AddAlarm(panel.Title, $"{label} {alarmKind} 알람 발생", AlarmLevel.Alarm,
+                                 dbType: "C_" + alarmKind, panelNo: panel.Index + 1);
+                    }
+                    else
+                    {
+                        // 하강 에지 → 알람 에피소드 종료
+                        ServiceHub.DbLog.AlarmCleared(panel.Index + 1, "C_" + alarmKind);
                     }
                 }
                 RefreshRlcState();
@@ -270,7 +276,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             // 보호·상태 DI 피드백
             if (fb.McTag.EndsWith("_FB", StringComparison.OrdinalIgnoreCase))
             {
+                bool wasRemote = panel.IsRemote;
                 panel.ApplyStatusFeedback(fb.McTag, fb.On);
+                // Local/Remote 전환 이력 (spec: MODE_CHANGE)
+                if (fb.McTag == $"P{panel.Index + 1}_LOC_REM_FB" && panel.IsRemote != wasRemote)
+                    ServiceHub.DbLog.LogOperation(panel.Index + 1, "SYSTEM", "MODE_CHANGE", "성공",
+                        detailJson: $"{{\"from\":\"{(wasRemote ? "REMOTE" : "LOCAL")}\",\"to\":\"{(panel.IsRemote ? "REMOTE" : "LOCAL")}\"}}");
                 RefreshStatusFlags();
                 OnProtectionFeedback(panel, fb.McTag, fb.On);
             }
@@ -295,9 +306,19 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             }
             else
             {
-                _activeProtections.Remove(fbTag);            // Falling edge: reset
+                // Falling edge: reset + DB 알람 에피소드 종료
+                if (_activeProtections.Remove(fbTag))
+                    ServiceHub.DbLog.AlarmCleared(p, ProtectionTypeOf(fbTag, p));
             }
         }
+
+        // P{p}_EMG_FB → "EMG" 등 tb_alarm_event.alarm_type 토큰
+        private static string ProtectionTypeOf(string fbTag, int p) =>
+            fbTag == $"P{p}_EMG_FB"       ? "EMG"       :
+            fbTag == $"P{p}_MCCB_TRIP_FB" ? "MCCB_TRIP" :
+            fbTag == $"P{p}_OVR_FB"       ? "OVR"       :
+            fbTag == $"P{p}_OCR_FB"       ? "OCR"       :
+            fbTag == $"P{p}_HT_FB"        ? "HT"        : fbTag;
 
         private void TriggerProtectionAction(PanelViewModel panel, string fbTag)
         {
@@ -306,7 +327,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
             if (fbTag == $"P{p}_EMG_FB")
             {
-                AddAlarm("ALL", "비상정지(EMG) 발생 → 전체 부하 자동 차단", AlarmLevel.Trip);
+                AddAlarm("ALL", "비상정지(EMG) 발생 → 전체 부하 자동 차단", AlarmLevel.Trip,
+                         dbType: "EMG", panelNo: p);
                 ServiceHub.Auto.Stop();
                 _ = EmergencyOffAsync();
                 return;
@@ -320,13 +342,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             else if (fbTag == $"P{p}_HT_FB")         { reason = "HT";        msg = "과열(HT) 보호 동작 → 부하 차단";        level = AlarmLevel.Alarm; }
             else return;
 
-            AddAlarm(panel.Title, msg, level);
+            AddAlarm(panel.Title, msg, level, dbType: ProtectionTypeOf(fbTag, p), panelNo: p);
             _ = ProtectionOffAsync(panel, reason);
         }
 
         // EMG: 지연 없이 모든 판넬 즉시 차단
         private System.Threading.Tasks.Task EmergencyOffAsync()
         {
+            ServiceHub.DbLog.McCommandContext = "SYSTEM";
             foreach (var p in Panels.Where(p => p.IsConnected).OrderBy(p => p.Index))
             {
                 foreach (var cs in CStagesOrdered(p, false))
@@ -346,12 +369,14 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             RefreshRlcState();
             ClearPreview();
             AddHistory("ALL", "EMG-STOP 보호동작 자동 차단 (즉시)", "성공");
+            LogOp("ALL_OFF", "성공", mode: "SYSTEM", detailJson: "{\"trigger\":\"EMG\"}");
             return System.Threading.Tasks.Task.CompletedTask;
         }
 
         // 개별 판넬 보호동작: C→L→R 역순, 500ms 간격
         private async System.Threading.Tasks.Task ProtectionOffAsync(PanelViewModel panel, string reason)
         {
+            ServiceHub.DbLog.McCommandContext = "SYSTEM";
             foreach (var cs in CStagesOrdered(panel, false))
             {
                 if (cs.IsRunning)
@@ -375,6 +400,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             RefreshRlcState();
             ClearPreview();
             AddHistory(panel.Title, $"{reason} 보호동작 자동 차단 (C→L→R 역순)", "성공");
+            LogOp("ALL_OFF", "성공", panel, "SYSTEM",
+                  detailJson: $"{{\"trigger\":\"{reason.Replace(' ', '_')}\"}}");
         }
 
         private void RefreshStatusFlags()
@@ -492,8 +519,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                     return;
                 mc.State = McState.CommWait;
+                ServiceHub.DbLog.McCommandContext = "MANUAL";
                 ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, turnOn);
                 AddHistory(panel.Title, $"{mc.Label} {(turnOn ? "ON" : "OFF")}", "성공");
+                LogOp(turnOn ? "MC_ON" : "MC_OFF", "성공", panel, "MANUAL", LoadTypeOf(mc.Tag), mc.Tag);
             }
             else if (IsAuto)
             {
@@ -508,8 +537,11 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         "MC 강제 개방 확인", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                     return;
                 mc.State = McState.CommWait;
+                ServiceHub.DbLog.McCommandContext = "MANUAL";   // 사용자 수동 개입
                 ServiceHub.Plc.WriteMcCommand(panel.Index, mc.Tag, false);
                 AddHistory(panel.Title, $"[자동] {mc.Label} 강제 개방", "성공");
+                LogOp("MC_OFF", "성공", panel, "MANUAL", LoadTypeOf(mc.Tag), mc.Tag,
+                      detailJson: "{\"forced\":true,\"during\":\"AUTO\"}");
             }
             else
             {
@@ -551,6 +583,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             // 이력 "진행중" 등록 → C_RESULT 피드백 확인 시 "성공"으로 갱신
             var entry      = AddHistory(panel.Title, $"{cs.Label} {act}", "진행중");
             string resTtag = $"{cs.Tag}_RESULT";
+            ServiceHub.DbLog.McCommandContext = "MANUAL";
             ServiceHub.Plc.WriteMcCommand(panel.Index, $"{cs.Tag}_CMD", turnOn);
 
             // C_RESULT DI 피드백 대기 (T=동작, F=멈춤)
@@ -574,8 +607,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 else
                 {
                     entry.Result = "실패";
-                    AddAlarm(panel.Title, $"{cs.Label} {act} 피드백 타임아웃", AlarmLevel.Alarm);
+                    AddAlarm(panel.Title, $"{cs.Label} {act} 피드백 타임아웃", AlarmLevel.Alarm,
+                             dbType: "CMD_FB_MISMATCH", panelNo: panel.Index + 1, instant: true);
                 }
+                LogOp(turnOn ? "MC_ON" : "MC_OFF", entry.Result, panel, "MANUAL", "C", cs.Tag);
             }
             finally
             {
@@ -608,18 +643,20 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         private async Task WrapSequenceAsync(Func<CancellationToken, Task> body,
             string historyPanel, string cancelMsg, CancellationToken ct,
-            Action onCancel = null, HistoryEntry inProgress = null)
+            Action onCancel = null, HistoryEntry inProgress = null, Action<string> logOp = null)
         {
             try
             {
                 await body(ct);
                 if (inProgress != null) inProgress.Result = "성공";
+                logOp?.Invoke("성공");
             }
             catch (OperationCanceledException)
             {
                 onCancel?.Invoke();
                 if (inProgress != null) inProgress.Result = "중단";
                 else AddHistory(historyPanel, cancelMsg, "중단");
+                logOp?.Invoke("중단");
             }
             finally { EndSequence(); }
         }
@@ -661,10 +698,12 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var entry = AddHistory("수동", evtText, "진행중");
             IsOnSequenceActive  = on;
             IsOffSequenceActive = !on;
+            ServiceHub.DbLog.McCommandContext = "MANUAL";
             var ct = BeginSequence();
             _ = WrapSequenceAsync(
                 t => on ? ManualLoadOnAsync(type, t) : ManualLoadOffAsync(type, t),
-                "수동", $"[{target}] {type} 부하 {act} 시퀀스 중단", ct, inProgress: entry);
+                "수동", $"[{target}] {type} 부하 {act} 시퀀스 중단", ct, inProgress: entry,
+                logOp: res => LogOp(on ? "SEQ_ON" : "SEQ_OFF", res, SelectedAutoPanel, "MANUAL", type, target));
         }
 
         // 선택 판넬(또는 전체) 순차 ON: PNL-1→2→3 순서
@@ -759,6 +798,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                     MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
+            ServiceHub.DbLog.McCommandContext = "MANUAL";
             foreach (var p in GetTargetPanels())
             {
                 ServiceHub.Plc.WriteMcCommand(p.Index, $"P{p.Index + 1}_MCCB_{kind}_CMD", true);
@@ -767,8 +807,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                 else if (kind == "OFF")  p.ApplyStatusFeedback($"P{p.Index + 1}_MCCB_ON_FB",   false);
                 else if (kind == "TRIP") p.ApplyStatusFeedback($"P{p.Index + 1}_MCCB_TRIP_FB", true);
                 AddHistory(p.Title, $"MCCB {kind}", "성공");
+                LogOp("MCCB_" + kind, "성공", p, "MANUAL");
             }
-            if (kind == "TRIP") AddAlarm(SelectedAutoPanel?.Title ?? "ALL", "MCCB TRIP 명령", AlarmLevel.Trip);
+            if (kind == "TRIP") AddAlarm(SelectedAutoPanel?.Title ?? "ALL", "MCCB TRIP 명령", AlarmLevel.Trip,
+                                         dbType: "MCCB_TRIP_CMD", panelNo: SelectedAutoPanel?.Index + 1, instant: true);
             RefreshStatusFlags();
         }
 
@@ -781,8 +823,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var entry = AddHistory("수동", "RESET 전체 OFF (C→L→R 역순)", "진행중");
             IsOnSequenceActive  = false;
             IsOffSequenceActive = true;
+            ServiceHub.DbLog.McCommandContext = "MANUAL";
             var ct = BeginSequence();
-            _ = WrapSequenceAsync(t => SequentialOffAsync(t), "수동", "RESET 시퀀스 중단", ct, inProgress: entry);
+            _ = WrapSequenceAsync(t => SequentialOffAsync(t), "수동", "RESET 시퀀스 중단", ct, inProgress: entry,
+                logOp: res => LogOp("ALL_OFF", res, mode: "MANUAL", detailJson: "{\"trigger\":\"RESET\"}"));
         }
 
         // ── Auto operation ────────────────────────────────────────────────────
@@ -824,8 +868,16 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
             IsOnSequenceActive  = true;
             IsOffSequenceActive = false;
+            ServiceHub.DbLog.McCommandContext = "AUTO";
+            string autoDetail = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                autoMode = AutoMode.ToString(),
+                target_r_kw = targets.RkW, target_l_kvar = targets.LkVar, target_c_kvar = targets.CkVar,
+                planned_tags = plan.OnTags.Count,
+            });
             var ct = BeginSequence();
-            _ = WrapSequenceAsync(t => ApplyPlanAsync(plan, t), "자동", "자동운전 시퀀스 중단", ct, ClearPreview, entry);
+            _ = WrapSequenceAsync(t => ApplyPlanAsync(plan, t), "자동", "자동운전 시퀀스 중단", ct, ClearPreview, entry,
+                logOp: res => LogOp("AUTO_COMPLETE", res, SelectedAutoPanel, "AUTO", detailJson: autoDetail));
         }
 
         private AutoTargets ComputeTargets()
@@ -983,8 +1035,10 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             var entry = AddHistory(panelLabel, "운전 종료 (C→L→R 역순)", "진행중");
             IsOnSequenceActive  = false;
             IsOffSequenceActive = true;
+            ServiceHub.DbLog.McCommandContext = "MANUAL";   // 사용자 종료 조작
             var ct = BeginSequence();
-            _ = WrapSequenceAsync(t => TerminateAsync(targets, t), panelLabel, "운전 종료 시퀀스 중단", ct, ClearPreview, entry);
+            _ = WrapSequenceAsync(t => TerminateAsync(targets, t), panelLabel, "운전 종료 시퀀스 중단", ct, ClearPreview, entry,
+                logOp: res => LogOp("ALL_OFF", res, SelectedAutoPanel, "MANUAL", detailJson: "{\"trigger\":\"TERMINATE\"}"));
         }
 
         private async Task TerminateAsync(IEnumerable<PanelViewModel> panels, CancellationToken ct)
@@ -1078,11 +1132,50 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             return entry;
         }
 
-        private void AddAlarm(string panel, string msg, AlarmLevel level)
+        /// <summary>UI 알람 + (dbType 지정 시) tb_alarm_event 기록.
+        /// instant=true는 지속시간 없는 단발 이벤트(발생=해제); 지속형은 해당
+        /// FB 하강 에지에서 ServiceHub.DbLog.AlarmCleared로 닫는다.</summary>
+        private void AddAlarm(string panel, string msg, AlarmLevel level,
+            string dbType = null, int? panelNo = null, bool instant = false)
         {
             Alarms.Insert(0, new AlarmEntry { Time = DateTime.Now, Panel = panel, Message = msg, Level = level });
+            if (dbType != null) ServiceHub.DbLog.AlarmRaised(panelNo, dbType, msg, instant);
             RefreshFaultState();
         }
+
+        // ── DB 운전 이벤트 (tb_operation_event) ──────────────────────────────
+
+        /// <summary>동작 완료 1건을 DB에 기록. panel=null이면 전체(연결 판넬 합산 용량).</summary>
+        private void LogOp(string opType, string result, PanelViewModel panel = null,
+            string mode = null, string loadType = null, string target = null, string detailJson = null)
+        {
+            var ps = panel != null ? new[] { panel } : Panels.Where(x => x.IsConnected).ToArray();
+            ServiceHub.DbLog.LogOperation(
+                panel != null ? panel.Index + 1 : (int?)null,
+                mode ?? (IsAuto ? "AUTO" : "MANUAL"),
+                opType, result, loadType,
+                phase: PhaseOf(target),
+                target: target,
+                appliedRkW:   Math.Round(ps.Sum(x => x.ActiveRkW),   2),
+                appliedLkVar: Math.Round(ps.Sum(x => x.ActiveLkVar), 2),
+                appliedCkVar: Math.Round(ps.Sum(x => x.ActiveCkVar), 2),
+                detailJson: detailJson);
+        }
+
+        // P1_R_RN_01 → "RN" (PNL-1 개별상). 그 외 형식은 null.
+        private static string PhaseOf(string tag)
+        {
+            if (string.IsNullOrEmpty(tag)) return null;
+            var parts = tag.Split('_');
+            return parts.Length >= 4 && (parts[2] == "RN" || parts[2] == "SN" || parts[2] == "TN")
+                ? parts[2] : null;
+        }
+
+        private static string LoadTypeOf(string tag) =>
+            tag == null ? null :
+            tag.Contains("_R_") ? "R" :
+            tag.Contains("_L_") ? "L" :
+            tag.Contains("_C")  ? "C" : null;
 
         private void SeedLogs() { }
     }

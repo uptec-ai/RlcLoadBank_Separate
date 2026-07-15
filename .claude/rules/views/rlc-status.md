@@ -62,6 +62,21 @@ echoes) → `FeedbackReceived` sets `On`/`Off`. Reflect `*_FB`, not `*_CMD` (spe
 R/L/C individual target setpoints (kW/kvar) bound to `RTarget/LTarget/CTarget`;
 `StartAutoCommand` calls `ServiceHub.Auto.Start(AutoTargets)` (algorithm stubbed).
 
+## DB logging (Phase 4)
+- Every completed operation calls `LogOp()` → `ServiceHub.DbLog.LogOperation`
+  (tb_operation_event): MC_ON/MC_OFF (single MC & C-stage), SEQ_ON/SEQ_OFF
+  (bulk R/L/C), ALL_OFF (RESET/TERMINATE/protection), AUTO_COMPLETE (detail
+  jsonb = targets/plan size), MCCB_*, MODE_CHANGE (LOC_REM_FB transition).
+  Sequence results flow through `WrapSequenceAsync(logOp:)`.
+- `AddAlarm(..., dbType:, panelNo:, instant:)` also writes tb_alarm_event
+  (Critical — always stored); duration episodes are closed on the falling
+  edge (protection tags in `OnProtectionFeedback`, C MC1/MC2/SCR in
+  `OnFeedback`) via `AlarmCleared`.
+- Before every `WriteMcCommand` burst set `ServiceHub.DbLog.McCommandContext`
+  (MANUAL/AUTO/SYSTEM) — `McLoggingPlcService` stamps it on tb_mc_event rows.
+  Capacity snapshot in LogOp for single-MC ops is taken at command time
+  (FB lands ~0.5 s later); sequence ops are accurate.
+
 ## Gotchas
 - MC visuals come from `McStateToBrushConverter` (legend: ON green / OFF grey /
   COMM WAIT orange / TRIP & ALARM red). Style `McCircle` is in `App.xaml`.
