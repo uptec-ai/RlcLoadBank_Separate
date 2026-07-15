@@ -123,9 +123,20 @@ via `App.OnExit`; abnormal exit leaves `ended_ts` NULL by design) and
 and calls `DbLog.RewirePlc()` — any future producer subscribing to `Plc`
 events needs the same rewire treatment.
 
+## Phase 5 (implemented)
+
+`OperationHistoryView` reads `tb_operation_event` via
+`DbLogService.QueryOperations(max)` (background task, UTC→local), falling
+back to the in-memory session history when `RLC_DB_CONN` is unset. The
+legacy `operation_history` path (`PostgresHistoryRepository`,
+`ServiceHub.UseDatabase`) was removed — the table never existed in DB_RLC,
+so there was no data to migrate. `ServiceHub.History`
+(`InMemoryHistoryRepository`) remains as the dashboard grid source and the
+HISTORY-view fallback only.
+
 ## Related
 
 `.claude/docs/system-spec.md` (§5.1 common-stop, §5.3 FB rule, §8 C-load
 sequence), `.claude/rules/views/metering-view.md`,
-`.claude/rules/views/operation-history-view.md` (the history view should
-move from `operation_history` to `tb_operation_event` when implemented).
+`.claude/rules/views/operation-history-view.md`,
+`.claude/rules/views/rlc-status.md` (Phase 4 producers).
