@@ -126,6 +126,10 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{StaticResource InkBrush}"/>
                                 </Grid>
+                                <TextBlock Text="{Binding ValueText}" FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{StaticResource SubInkBrush}"
+                                           Margin="0,1,0,0"/>
                                 <!-- 알람 도트: MC1 · SCR · MC2 -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
                                     <Ellipse x:Name="dotMc1" Width="7" Height="7" Margin="1,0" Fill="Transparent"/>

@@ -54,6 +54,13 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public bool HeartbeatOk { get => GetValue<bool>(); set => SetValue(value); }
         public DateTime Now { get => GetValue<DateTime>(); set => SetValue(value); }
 
+        // DB 기록 토글: ON = 모든 로그 저장 / OFF = Critical(알람·세션)만 저장.
+        // 변경 즉시 app.config(Db.FullLogging)에 영속.
+        public bool DbLoggingOn
+        { get => GetValue<bool>(); set => SetValue(value, () => ServiceHub.DbWriter.SaveFullLogging(DbLoggingOn)); }
+        // RLC_DB_CONN 환경변수 미설정이면 DB 기능 자체가 꺼져 토글 비활성.
+        public bool DbAvailable => ServiceHub.DbWriter.Enabled;
+
         // Auto-operation targets (R/L/C individual setpoints)
         public double RTarget { get => GetValue<double>(); set => SetValue(value, RefreshPreview); }
         public double LTarget { get => GetValue<double>(); set => SetValue(value, RefreshPreview); }
@@ -169,6 +176,7 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             PowerYAxisRange = new DoubleRange(-1, 10);
 
             EStopOk = true; AlarmWait = false; HeartbeatOk = true;
+            DbLoggingOn = ServiceHub.DbWriter.FullLogging;   // app.config에서 복원된 값
             // 초기값 세팅: RefreshPreview는 Mode = Auto 할당 시 호출되므로 여기서는 raw SetValue 없음.
             // SetValue 콜백이 RefreshPreview를 부르지 않도록 먼저 Panels를 구성한 후 target 값을 지정.
             RTarget = 200.0; LTarget = 200.0; CTarget = 130.0;

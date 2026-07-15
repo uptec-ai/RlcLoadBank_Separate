@@ -188,6 +188,13 @@
                     <TextBlock Text="날짜/시간" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="{Binding Now, StringFormat='yyyy-MM-dd  HH:mm:ss'}" FontSize="13"
                                VerticalAlignment="Center" Foreground="{StaticResource InkBrush}"/>
+                    <!-- DB 기록 토글: ON=모두 저장 / OFF=알람 등 필수 항목만 저장 -->
+                    <Border Background="#F0F2F6" CornerRadius="9" Padding="3" Margin="14,0,0,0"
+                            VerticalAlignment="Center" IsEnabled="{Binding DbAvailable}"
+                            ToolTip="ON: 장비 상태·계측 등 모든 로그 저장&#10;OFF: 알람 등 필수 항목만 저장&#10;(RLC_DB_CONN 미설정 시 비활성)">
+                        <ToggleButton Style="{StaticResource Seg}" Content="DB 기록"
+                                      IsChecked="{Binding DbLoggingOn, Mode=TwoWay}"/>
+                    </Border>
                     <Button Content="⚙ 연결 설정" Style="{StaticResource BtnGhost}" Height="30" Margin="14,0,0,0"
                             Command="{Binding OpenConnectionCommand}"/>
                 </StackPanel>
