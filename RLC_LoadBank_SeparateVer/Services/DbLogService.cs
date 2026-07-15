@@ -100,6 +100,95 @@ namespace RLC_LoadBank_SeparateVer.Services
                 ("d",   detail));
         }
 
+        // ── 운전 이벤트 (tb_operation_event) — Phase 4 ───────────────────────
+
+        /// <summary>
+        /// MC 명령의 운전 맥락. McLoggingPlcService가 명령 시점에 캡처해 tb_mc_event.mode로
+        /// 기록한다. RlcStatusViewModel이 각 흐름 시작 시 설정: MANUAL(기본)/AUTO/SYSTEM.
+        /// 시퀀스는 동시에 1개만 실행되므로(IsSequenceRunning 게이트) 단일 값으로 충분.
+        /// </summary>
+        public string McCommandContext { get; set; } = "MANUAL";
+
+        /// <summary>동작 완료 1건 = 1 row. opType: MC_ON/MC_OFF/SEQ_ON/SEQ_OFF/ALL_OFF/
+        /// AUTO_COMPLETE/MODE_CHANGE/MCCB_ON/MCCB_OFF/MCCB_TRIP ... (자유 텍스트)</summary>
+        public void LogOperation(int? panelNo, string mode, string opType, string result,
+            string loadType = null, string phase = null, string target = null,
+            double? appliedRkW = null, double? appliedLkVar = null, double? appliedCkVar = null,
+            string detailJson = null)
+        {
+            if (!_db.Enabled) return;
+            _db.Enqueue(DbLogCategory.Normal,
+                @"INSERT INTO tb_operation_event
+                    (ts, session_id, panel_no, mode, op_type, load_type, phase, target,
+                     applied_r_kw, applied_l_kvar, applied_c_kvar, result, detail)
+                  VALUES (@ts,@sid,@p::smallint,@m,@o,@l,@ph,@tg,@r,@lk,@c,@res,@d::jsonb)",
+                ("ts",  DateTimeOffset.UtcNow),
+                ("sid", DbWriterService.SessionIdRef),
+                ("p",   panelNo.HasValue ? (object)(short)panelNo.Value : null),
+                ("m",   mode), ("o", opType), ("l", loadType), ("ph", phase), ("tg", target),
+                ("r",   appliedRkW), ("lk", appliedLkVar), ("c", appliedCkVar),
+                ("res", result), ("d", detailJson));
+        }
+
+        // ── MC 상태 변화 (tb_mc_event) — McLoggingPlcService가 호출 ──────────
+
+        public void LogMcEvent(int panelNo, string mcTag, bool on, string mode,
+            DateTimeOffset? cmdTs, DateTimeOffset? fbTs, bool confirmed, string detail = null)
+        {
+            if (!_db.Enabled) return;
+            _db.Enqueue(DbLogCategory.Normal,
+                @"INSERT INTO tb_mc_event
+                    (ts, session_id, panel_no, mc_tag, action, mode, cmd_ts, fb_ts, confirmed, detail)
+                  VALUES (@ts,@sid,@p,@tag,@act,@m,@c,@f,@conf,@d)",
+                ("ts",   fbTs ?? cmdTs ?? DateTimeOffset.UtcNow),
+                ("sid",  DbWriterService.SessionIdRef),
+                ("p",    (short)panelNo),
+                ("tag",  mcTag),
+                ("act",  on ? "ON" : "OFF"),
+                ("m",    mode),
+                ("c",    cmdTs.HasValue ? (object)cmdTs.Value : null),
+                ("f",    fbTs.HasValue ? (object)fbTs.Value : null),
+                ("conf", confirmed),
+                ("d",    detail));
+        }
+
+        // ── 알람 에피소드 (tb_alarm_event) — Critical: 토글과 무관하게 항상 저장 ──
+
+        /// <summary>알람 발생. instant=true면 지속시간 없는 단발 이벤트(발생=해제).
+        /// 지속형은 같은 (type, panel)의 open 에피소드가 있으면 중복 insert하지 않는다.</summary>
+        public void AlarmRaised(int? panelNo, string alarmType, string detail = null, bool instant = false)
+        {
+            if (!_db.Enabled) return;
+            object p = panelNo.HasValue ? (object)(short)panelNo.Value : null;
+            if (instant)
+                _db.Enqueue(DbLogCategory.Critical,
+                    @"INSERT INTO tb_alarm_event (session_id, panel_no, alarm_type, raised_ts, cleared_ts, detail)
+                      VALUES (@sid,@p::smallint,@a,@t,@t,@d)",
+                    ("sid", DbWriterService.SessionIdRef), ("p", p), ("a", alarmType),
+                    ("t", DateTimeOffset.UtcNow), ("d", detail));
+            else
+                _db.Enqueue(DbLogCategory.Critical,
+                    @"INSERT INTO tb_alarm_event (session_id, panel_no, alarm_type, raised_ts, detail)
+                      SELECT @sid::bigint, @p::smallint, @a, @t, @d
+                       WHERE NOT EXISTS (SELECT 1 FROM tb_alarm_event
+                                          WHERE cleared_ts IS NULL AND alarm_type = @a
+                                            AND panel_no IS NOT DISTINCT FROM @p::smallint)",
+                    ("sid", DbWriterService.SessionIdRef), ("p", p), ("a", alarmType),
+                    ("t", DateTimeOffset.UtcNow), ("d", detail));
+        }
+
+        /// <summary>지속형 알람 해제 — 같은 (type, panel)의 open 에피소드를 닫는다.</summary>
+        public void AlarmCleared(int? panelNo, string alarmType)
+        {
+            if (!_db.Enabled) return;
+            _db.Enqueue(DbLogCategory.Critical,
+                @"UPDATE tb_alarm_event SET cleared_ts = @t
+                   WHERE cleared_ts IS NULL AND alarm_type = @a
+                     AND panel_no IS NOT DISTINCT FROM @p::smallint",
+                ("t", DateTimeOffset.UtcNow), ("a", alarmType),
+                ("p", panelNo.HasValue ? (object)(short)panelNo.Value : null));
+        }
+
         // ── PLC 인스턴스 교체 대응 ────────────────────────────────────────────
 
         /// <summary>

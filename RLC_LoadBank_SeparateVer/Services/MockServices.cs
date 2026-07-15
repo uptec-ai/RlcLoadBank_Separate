@@ -142,9 +142,11 @@ namespace RLC_LoadBank_SeparateVer.Services
         public static bool UseRealHardware = true;
 
         private static IPlcService _plc;
-        // ServiceHub.Plc        => PLC 연결/명령/피드백 (ModbusPlcService)
+        // ServiceHub.Plc        => PLC 연결/명령/피드백 (ModbusPlcService).
+        // McLoggingPlcService로 감싸 모든 MC 명령/피드백을 tb_mc_event로 기록.
         public static IPlcService Plc =>
-            _plc ??= UseRealHardware ? (IPlcService)new ModbusPlcService() : new MockPlcService(); 
+            _plc ??= new McLoggingPlcService(
+                UseRealHardware ? (IPlcService)new ModbusPlcService() : new MockPlcService());
 
         public static void ResetPlcService()
         {

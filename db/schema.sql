@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS tb_schema_version (
 INSERT INTO tb_schema_version (version, description)
 VALUES (1, 'initial schema: sessions, events, 1-min aggregates')
 ON CONFLICT (version) DO NOTHING;
+INSERT INTO tb_schema_version (version, description)
+VALUES (2, 'tb_mc_event.mode: +SYSTEM (protection auto-off commands)')
+ON CONFLICT (version) DO NOTHING;
 
 -- ── 앱 실행 세션 (이력 조회의 기준 축) ──────────────────────────────
 CREATE TABLE IF NOT EXISTS tb_app_session (
@@ -58,7 +61,8 @@ CREATE TABLE IF NOT EXISTS tb_mc_event (
     panel_no   smallint NOT NULL CHECK (panel_no BETWEEN 1 AND 3),
     mc_tag     text NOT NULL,                -- 예: 'P1_R_RN_01' (FB/CMD 접미사 제외)
     action     text NOT NULL CHECK (action IN ('ON','OFF')),
-    mode       text NOT NULL CHECK (mode IN ('MANUAL','AUTO','LOCAL')),  -- LOCAL = 현장조작 감지(FB만 변화)
+    -- LOCAL = 현장조작 감지(FB만 변화) / SYSTEM = 보호동작 등 시스템 자동 차단
+    mode       text NOT NULL CHECK (mode IN ('MANUAL','AUTO','LOCAL','SYSTEM')),
     cmd_ts     timestamptz,                  -- CMD 발행 시각 (LOCAL이면 NULL)
     fb_ts      timestamptz,                  -- FB 확인 시각 (fb_ts - cmd_ts = 응답 지연)
     confirmed  boolean NOT NULL,             -- false = CMD/FB 불일치 (spec §5.3)
@@ -161,6 +165,13 @@ CREATE INDEX IF NOT EXISTS ix_tb_isem_agg_1m_ts ON tb_isem_agg_1m USING brin (ts
 --   1분 집계     : 2년   DELETE FROM tb_gimac_agg_1m WHERE ts < now() - interval '2 years';
 --                        DELETE FROM tb_isem_agg_1m  WHERE ts < now() - interval '2 years';
 --   raw(옵션)    : 7일
+-- ====================================================================
+
+-- ====================================================================
+-- v2 마이그레이션 (멱등 — 기존 DB의 mode CHECK에 SYSTEM 추가):
+ALTER TABLE tb_mc_event DROP CONSTRAINT IF EXISTS tb_mc_event_mode_check;
+ALTER TABLE tb_mc_event ADD CONSTRAINT tb_mc_event_mode_check
+    CHECK (mode IN ('MANUAL','AUTO','LOCAL','SYSTEM'));
 -- ====================================================================
 
 -- ====================================================================
