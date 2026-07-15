@@ -7,6 +7,10 @@
         <vm:OperationHistoryViewModel/>
     </UserControl.DataContext>
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -18,6 +22,8 @@
                 <TextBlock Text="운전 이력" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderText}"/>
                 <TextBlock Text="{Binding SourceText, StringFormat='저장소: {0}'}" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="14,4,0,0"/>
                 <TextBlock Text="{Binding Count, StringFormat='· {0} 건'}" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="8,4,0,0"/>
+                <TextBlock Text="불러오는 중..." FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="8,4,0,0"
+                           Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             </StackPanel>
             <Button Content="↻ 새로고침" HorizontalAlignment="Right" Height="32" Padding="14,0" Command="{Binding RefreshCommand}"/>
         </Grid>
@@ -25,17 +31,37 @@
         <Border Grid.Row="1" Style="{StaticResource Card}">
             <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
-                      RowHeight="30" FontSize="12.5" Background="Transparent" RowBackground="Transparent" CanUserAddRows="False">
+                      RowHeight="30" FontSize="12.5" Background="Transparent" RowBackground="Transparent" CanUserAddRows="False"
+                      EnableRowVirtualization="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="시간" Binding="{Binding TimeText}" Width="180"/>
-                    <DataGridTextColumn Header="판넬" Binding="{Binding Panel}" Width="100"/>
-                    <DataGridTextColumn Header="이벤트 내용" Binding="{Binding Event}" Width="150"/>
+                    <DataGridTextColumn Header="시간"      Binding="{Binding TimeText}"   Width="150"/>
+                    <DataGridTextColumn Header="판넬"      Binding="{Binding PanelText}"  Width="75"/>
+                    <DataGridTextColumn Header="모드"      Binding="{Binding ModeText}"   Width="65"/>
+                    <DataGridTextColumn Header="동작"      Binding="{Binding OpText}"     Width="140"/>
+                    <DataGridTextColumn Header="부하"      Binding="{Binding LoadText}"   Width="50"/>
+                    <DataGridTextColumn Header="대상"      Binding="{Binding TargetText}" Width="*"/>
+                    <DataGridTextColumn Header="투입 용량 (kW/kVAr)" Binding="{Binding CapText}" Width="170"/>
                     <DataGridTemplateColumn Header="결과" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Border CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EAF7F0">
-                                    <TextBlock Text="{Binding Result}" Foreground="#27A86A" FontSize="11" FontWeight="SemiBold"/>
+                                <!-- 결과 배지: 성공=녹색, 실패=적색, 중단=주황, 그 외=회색 -->
+                                <Border x:Name="pill" CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EEF1F5">
+                                    <TextBlock x:Name="pillText" Text="{Binding Result}" Foreground="#5A6472" FontSize="11" FontWeight="SemiBold"/>
                                 </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Result}" Value="성공">
+                                        <Setter TargetName="pill"     Property="Background" Value="#EAF7F0"/>
+                                        <Setter TargetName="pillText" Property="Foreground" Value="#27A86A"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Result}" Value="실패">
+                                        <Setter TargetName="pill"     Property="Background" Value="#FDE8E8"/>
+                                        <Setter TargetName="pillText" Property="Foreground" Value="#E04F4F"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Result}" Value="중단">
+                                        <Setter TargetName="pill"     Property="Background" Value="#FBF1E3"/>
+                                        <Setter TargetName="pillText" Property="Foreground" Value="#E8943A"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
