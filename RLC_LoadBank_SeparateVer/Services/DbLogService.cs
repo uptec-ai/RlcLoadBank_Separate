@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Npgsql;
 using RLC_LoadBank_SeparateVer.Models;
 
 namespace RLC_LoadBank_SeparateVer.Services
@@ -14,6 +16,8 @@ namespace RLC_LoadBank_SeparateVer.Services
     /// </summary>
     public sealed class DbLogService
     {
+        private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
+
         private readonly DbWriterService _db;
         private IPlcService _plc;   // 현재 구독 중인 PLC 서비스 (ResetPlcService 대응)
 
@@ -187,6 +191,48 @@ namespace RLC_LoadBank_SeparateVer.Services
                      AND panel_no IS NOT DISTINCT FROM @p::smallint",
                 ("t", DateTimeOffset.UtcNow), ("a", alarmType),
                 ("p", panelNo.HasValue ? (object)(short)panelNo.Value : null));
+        }
+
+        // ── 운전 이벤트 조회 (OperationHistoryView) ──────────────────────────
+
+        /// <summary>최근 max건의 tb_operation_event를 읽는다 (동기 — UI 스레드에서
+        /// 직접 부르지 말고 Task.Run으로 감쌀 것). 실패/비활성 시 빈 리스트.</summary>
+        public IReadOnlyList<OperationEventRecord> QueryOperations(int max = 500)
+        {
+            var list = new List<OperationEventRecord>();
+            if (!_db.Enabled) return list;
+            try
+            {
+                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
+                conn.Open();
+                using var cmd = new NpgsqlCommand(
+                    @"SELECT ts, panel_no, mode, op_type, load_type, phase, target,
+                             applied_r_kw, applied_l_kvar, applied_c_kvar, result, detail::text
+                        FROM tb_operation_event ORDER BY ts DESC LIMIT @m", conn);
+                cmd.Parameters.AddWithValue("m", max);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    list.Add(new OperationEventRecord
+                    {
+                        Ts       = r.GetDateTime(0).ToLocalTime(),   // timestamptz(UTC) → 로컬
+                        PanelNo  = r.IsDBNull(1)  ? (int?)null : r.GetInt16(1),
+                        Mode     = r.GetString(2),
+                        OpType   = r.GetString(3),
+                        LoadType = r.IsDBNull(4)  ? null : r.GetString(4),
+                        Phase    = r.IsDBNull(5)  ? null : r.GetString(5),
+                        Target   = r.IsDBNull(6)  ? null : r.GetString(6),
+                        RkW      = r.IsDBNull(7)  ? (decimal?)null : r.GetDecimal(7),
+                        LkVar    = r.IsDBNull(8)  ? (decimal?)null : r.GetDecimal(8),
+                        CkVar    = r.IsDBNull(9)  ? (decimal?)null : r.GetDecimal(9),
+                        Result   = r.GetString(10),
+                        Detail   = r.IsDBNull(11) ? null : r.GetString(11),
+                    });
+            }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "QueryOperations failed: {0}", ex.Message);
+            }
+            return list;
         }
 
         // ── PLC 인스턴스 교체 대응 ────────────────────────────────────────────
