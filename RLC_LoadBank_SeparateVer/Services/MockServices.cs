@@ -161,6 +161,10 @@ namespace RLC_LoadBank_SeparateVer.Services
         public static ICLoadSequencer       CLoad    { get; } = new CLoadSequencer();
         // ServiceHub.Metering   => ISEM/GIMAC 계측기 TCP 연결 + 500ms 폴링 (창 닫아도 유지)
         public static IMeteringService      Metering { get; } = new MeteringService();
+        // ServiceHub.MeteringHistory => 계측 트렌드 수집/집계 상주 서비스.
+        // MeteringView를 열지 않아도 장비 연결 시점부터 델타 트렌드가 쌓인다.
+        // 주의: 정적 초기화 순서 때문에 반드시 Metering 선언 뒤에 있어야 함.
+        public static MeteringHistoryService MeteringHistory { get; } = new MeteringHistoryService(Metering);
 
         public static bool   UseDatabase      = false;
         public static string ConnectionString =
