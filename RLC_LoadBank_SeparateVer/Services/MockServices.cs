@@ -161,15 +161,29 @@ namespace RLC_LoadBank_SeparateVer.Services
         public static ICLoadSequencer       CLoad    { get; } = new CLoadSequencer();
         // ServiceHub.Metering   => ISEM/GIMAC 계측기 TCP 연결 + 500ms 폴링 (창 닫아도 유지)
         public static IMeteringService      Metering { get; } = new MeteringService();
+        // ServiceHub.MeteringHistory => 계측 트렌드 수집/집계 상주 서비스.
+        // MeteringView를 열지 않아도 장비 연결 시점부터 델타 트렌드가 쌓인다.
+        // 주의: 정적 초기화 순서 때문에 반드시 Metering 선언 뒤에 있어야 함.
+        public static MeteringHistoryService MeteringHistory { get; } = new MeteringHistoryService(Metering);
 
-        public static bool   UseDatabase      = false;
-        public static string ConnectionString =
-            "Host=localhost;Port=5432;Database=rlc;Username=postgres;Password=postgres";
+        // ── Database ──────────────────────────────────────────────────────
+        // 연결 문자열은 환경변수 RLC_DB_CONN(Npgsql 형식, 대상 DB: DB_RLC)에서만 온다.
+        // 미설정이면 DB 기능 전체 비활성 — HMI 동작에는 영향 없음.
+        public static string ConnectionString { get; } =
+            Environment.GetEnvironmentVariable("RLC_DB_CONN");
+
+        // ServiceHub.DbWriter   => 공용 백그라운드 DB 라이터 (배치 insert + EnsureSchema).
+        // Critical(알람·세션)은 항상, Normal은 대시보드 토글(FullLogging) ON일 때만 저장.
+        // 주의: 정적 초기화 순서 때문에 ConnectionString 선언 뒤에 있어야 함.
+        public static DbWriterService DbWriter { get; } = new DbWriterService(ConnectionString);
+
+        // 레거시 운전 이력 경로 — Phase 5에서 tb_operation_event로 통합 예정
+        public static bool UseDatabase = false;
 
         private static IHistoryRepository _history;
         // ServiceHub.History    => 운전 이력 (InMemoryHistoryRepository)
         public static IHistoryRepository History => _history ??=
-            UseDatabase
+            UseDatabase && !string.IsNullOrWhiteSpace(ConnectionString)
                 ? new PostgresHistoryRepository(ConnectionString)
                 : (IHistoryRepository)new InMemoryHistoryRepository();
     }
