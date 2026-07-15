@@ -188,14 +188,9 @@ namespace RLC_LoadBank_SeparateVer.Services
         // 주의: DbWriter·Metering·Plc 선언 뒤에 있어야 함 (정적 초기화 순서).
         public static DbLogService DbLog { get; } = new DbLogService(DbWriter, Metering, Plc);
 
-        // 레거시 운전 이력 경로 — Phase 5에서 tb_operation_event로 통합 예정
-        public static bool UseDatabase = false;
-
-        private static IHistoryRepository _history;
-        // ServiceHub.History    => 운전 이력 (InMemoryHistoryRepository)
-        public static IHistoryRepository History => _history ??=
-            UseDatabase && !string.IsNullOrWhiteSpace(ConnectionString)
-                ? new PostgresHistoryRepository(ConnectionString)
-                : (IHistoryRepository)new InMemoryHistoryRepository();
+        // ServiceHub.History    => 세션 한정 in-memory 운전 이력.
+        // 대시보드 그리드 + DB(RLC_DB_CONN) 미설정 시 HISTORY 화면의 폴백 소스.
+        // 영속 이력은 tb_operation_event (DbLog.LogOperation / QueryOperations).
+        public static IHistoryRepository History { get; } = new InMemoryHistoryRepository();
     }
 }

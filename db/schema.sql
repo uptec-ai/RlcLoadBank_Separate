@@ -175,10 +175,6 @@ ALTER TABLE tb_mc_event ADD CONSTRAINT tb_mc_event_mode_check
 -- ====================================================================
 
 -- ====================================================================
--- (1회성) 기존 operation_history 이관 예시 — panel 문자열 형식 확인 후 실행:
--- INSERT INTO tb_operation_event (ts, panel_no, mode, op_type, target, result)
--- SELECT ts::timestamptz,
---        NULLIF(regexp_replace(COALESCE(panel,''), '\D', '', 'g'), '')::smallint,
---        'MANUAL', 'LEGACY', event, COALESCE(result, 'OK')
--- FROM operation_history;
+-- 레거시 operation_history 테이블: DB_RLC에는 생성된 적 없음 (2026-07-15 확인).
+-- 코드 경로(PostgresHistoryRepository/UseDatabase)는 Phase 5에서 제거됨.
 -- ====================================================================
