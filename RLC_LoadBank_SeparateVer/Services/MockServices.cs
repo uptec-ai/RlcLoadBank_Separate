@@ -146,7 +146,11 @@ namespace RLC_LoadBank_SeparateVer.Services
         public static IPlcService Plc =>
             _plc ??= UseRealHardware ? (IPlcService)new ModbusPlcService() : new MockPlcService(); 
 
-        public static void ResetPlcService() { _plc = null; }
+        public static void ResetPlcService()
+        {
+            _plc = null;
+            DbLog.RewirePlc();   // 새 인스턴스로 연결 이벤트 구독 이관
+        }
 
         private static IDeviceConnectionService _devices;
         // ServiceHub.Devices    => 장비 목록 로드/저장 (ModbusDeviceConnectionService)
@@ -176,6 +180,10 @@ namespace RLC_LoadBank_SeparateVer.Services
         // Critical(알람·세션)은 항상, Normal은 대시보드 토글(FullLogging) ON일 때만 저장.
         // 주의: 정적 초기화 순서 때문에 ConnectionString 선언 뒤에 있어야 함.
         public static DbWriterService DbWriter { get; } = new DbWriterService(ConnectionString);
+
+        // ServiceHub.DbLog      => 세션/장비연결 이벤트 생산자 (tb_app_session, tb_connection_event).
+        // 주의: DbWriter·Metering·Plc 선언 뒤에 있어야 함 (정적 초기화 순서).
+        public static DbLogService DbLog { get; } = new DbLogService(DbWriter, Metering, Plc);
 
         // 레거시 운전 이력 경로 — Phase 5에서 tb_operation_event로 통합 예정
         public static bool UseDatabase = false;

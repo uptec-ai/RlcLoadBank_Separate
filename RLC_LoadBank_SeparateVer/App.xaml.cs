@@ -24,14 +24,16 @@ namespace RLC_LoadBank_SeparateVer
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-            // DB 라이터 조기 기동 (RLC_DB_CONN 미설정이면 내부적으로 비활성).
-            // 첫 배치 전에 EnsureSchema(임베디드 db/schema.sql)가 백그라운드에서 실행된다.
-            _ = ServiceHub.DbWriter;
+            // DB 라이터·세션 로거 조기 기동 (RLC_DB_CONN 미설정이면 내부적으로 비활성).
+            // DbLog 생성 시 tb_app_session insert가 큐에 들어가고, 첫 배치 전에
+            // EnsureSchema(임베디드 db/schema.sql)가 백그라운드에서 실행된다.
+            _ = ServiceHub.DbLog;
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
-            // 종료 전 큐 잔여분 드레인 (최대 3초)
+            // 정상 종료 표시 후 큐 잔여분 드레인 (최대 3초)
+            ServiceHub.DbLog.EndSession();
             ServiceHub.DbWriter.Shutdown(System.TimeSpan.FromSeconds(3));
             base.OnExit(e);
         }

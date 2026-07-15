@@ -25,6 +25,8 @@ namespace RLC_LoadBank_SeparateVer.Services
         public DbLogCategory Category { get; init; }
         public string Sql { get; init; }
         public (string Name, object Value)[] Args { get; init; }
+        /// <summary>true면 ExecuteScalar로 실행하고 결과(bigint)를 현재 세션 id로 보관.</summary>
+        internal bool CaptureSessionId { get; init; }
     }
 
     /// <summary>
@@ -62,6 +64,13 @@ namespace RLC_LoadBank_SeparateVer.Services
 
         private bool _schemaReady;
         private long _dropped;
+        private long? _sessionId;   // EnqueueSessionStart의 RETURNING id — 소비 스레드만 접근
+
+        /// <summary>
+        /// 파라미터 값 자리표시자: enqueue 시점에는 세션 id를 몰라도 되고,
+        /// 실제 쓰기 시점에 현재 세션 id(없으면 NULL)로 치환된다.
+        /// </summary>
+        public static readonly object SessionIdRef = new object();
 
         /// <summary>False when RLC_DB_CONN is not set — every Enqueue becomes a no-op.</summary>
         public bool Enabled { get; }
@@ -100,8 +109,22 @@ namespace RLC_LoadBank_SeparateVer.Services
         {
             if (!Enabled) return;
             if (category == DbLogCategory.Normal && !FullLogging) return;
+            Post(new DbWork { Category = category, Sql = sql, Args = args });
+        }
 
-            if (!_queue.Writer.TryWrite(new DbWork { Category = category, Sql = sql, Args = args }))
+        /// <summary>
+        /// 세션 시작 insert 전용(Critical): "... RETURNING id"를 ExecuteScalar로 실행해
+        /// 이후 SessionIdRef 치환에 쓸 세션 id를 보관한다. 앱 시작 직후 1회 호출.
+        /// </summary>
+        public void EnqueueSessionStart(string sql, params (string Name, object Value)[] args)
+        {
+            if (!Enabled) return;
+            Post(new DbWork { Category = DbLogCategory.Critical, Sql = sql, Args = args, CaptureSessionId = true });
+        }
+
+        private void Post(DbWork work)
+        {
+            if (!_queue.Writer.TryWrite(work))
             {
                 long n = Interlocked.Increment(ref _dropped);
                 if (n % 1000 == 1) Log.Warn("DbWriter queue full — dropped {0} writes so far.", n);
@@ -151,20 +174,45 @@ namespace RLC_LoadBank_SeparateVer.Services
                         using var cmd = new NpgsqlCommand(w.Sql, conn, tx);
                         if (w.Args != null)
                             foreach (var (name, value) in w.Args)
-                                cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
-                        cmd.ExecuteNonQuery();
+                                cmd.Parameters.AddWithValue(name, NormalizeArg(value));
+
+                        if (w.CaptureSessionId)
+                        {
+                            if (cmd.ExecuteScalar() is long id) _sessionId = id;
+                        }
+                        else
+                            cmd.ExecuteNonQuery();
                     }
                     tx.Commit();
                     return;
                 }
                 catch (Exception ex)
                 {
+                    // NLog 레이아웃(${message})에 exception이 안 찍히므로 메시지에 포함
                     if (attempt == WriteAttempts)
-                        Log.Warn(ex, "DbWriter batch dropped after {0} attempts ({1} rows).", WriteAttempts, batch.Count);
+                        Log.Warn(ex, "DbWriter batch dropped after {0} attempts ({1} rows): {2}", WriteAttempts, batch.Count, ex.Message);
                     else
                         Thread.Sleep(1000 * attempt);
                 }
             }
+        }
+
+        /// <summary>
+        /// 파라미터 값 정규화. Npgsql 6+는 timestamptz에 UTC만 허용하므로
+        /// (offset≠0 DateTimeOffset·Local DateTime은 ArgumentException)
+        /// 타임스탬프는 쓰기 시점에 UTC로 변환한다 — 생산자는 Now/UtcNow 아무거나 써도 안전.
+        /// </summary>
+        private object NormalizeArg(object value)
+        {
+            if (ReferenceEquals(value, SessionIdRef))
+                return _sessionId.HasValue ? (object)_sessionId.Value : DBNull.Value;
+            return value switch
+            {
+                DateTimeOffset dto => dto.ToUniversalTime(),
+                DateTime dt when dt.Kind != DateTimeKind.Utc => dt.ToUniversalTime(),
+                null => DBNull.Value,
+                _ => value,
+            };
         }
 
         // ── Schema bootstrap ──────────────────────────────────────────────────
@@ -184,7 +232,7 @@ namespace RLC_LoadBank_SeparateVer.Services
             }
             catch (Exception ex)
             {
-                Log.Warn(ex, "DbWriter: EnsureSchema failed — retrying in {0}s.", SchemaRetrySec);
+                Log.Warn(ex, "DbWriter: EnsureSchema failed — retrying in {0}s: {1}", SchemaRetrySec, ex.Message);
                 try { await Task.Delay(TimeSpan.FromSeconds(SchemaRetrySec), ct).ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
                 return false;

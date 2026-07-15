@@ -72,6 +72,26 @@ The toggle lives on the dashboard (`RlcStatusView`), binds to
   gate = category + `FullLogging` toggle. Legacy `ServiceHub.UseDatabase` /
   `PostgresHistoryRepository` (`operation_history`) stay untouched until
   Phase 5 unifies them onto `tb_operation_event`.
+- **Timestamps: Npgsql 6+ rejects non-UTC values for `timestamptz`**
+  (`DateTimeOffset` with offset ≠ 0 / `DateTime` Kind=Local throw
+  ArgumentException — this silently dropped the first session batch until
+  diagnosed). `DbWriterService.NormalizeArg` converts every timestamp arg
+  to UTC at write time, so producers may pass `Now` or `UtcNow` safely.
+- Session identity: the session-start INSERT (`EnqueueSessionStart`) runs
+  `RETURNING id` and the writer caches it; producers pass
+  `DbWriterService.SessionIdRef` as a placeholder arg, resolved to that id
+  (or NULL before/without a session) at write time.
+
+## Phase 2 producers (implemented — `Services/DbLogService.cs`)
+
+`ServiceHub.DbLog` writes `tb_app_session` (start on ServiceHub init, end
+via `App.OnExit`; abnormal exit leaves `ended_ts` NULL by design) and
+`tb_connection_event` from PLC/GIMAC/ISEM `ConnectionChanged`, plus the
+`panels_used` array append. Panel mapping mirrors
+`MeteringViewModel.IsemBelongsToPanel` (`DbLogService.PanelOf`).
+**Gotcha:** `ServiceHub.ResetPlcService()` swaps the `IPlcService` instance
+and calls `DbLog.RewirePlc()` — any future producer subscribing to `Plc`
+events needs the same rewire treatment.
 
 ## Related
 
