@@ -76,4 +76,9 @@
 		<Resource Include="Assets\Icons\*.png" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<!-- 정본 DDL(db/schema.sql)을 임베드 — DbWriterService.EnsureSchema가 실행 -->
+		<EmbeddedResource Include="..\db\schema.sql" Link="db\schema.sql" />
+	</ItemGroup>
+
 </Project>
