@@ -61,13 +61,22 @@ The toggle lives on the dashboard (`RlcStatusView`), binds to
   — DB down must never affect HMI operation. It runs `EnsureSchema`
   (embedded `db/schema.sql`) before consuming, retrying every 60 s while
   the DB is unreachable. `App.OnExit` calls `Shutdown()` to drain the queue.
-- 1-min aggregate inserts come from `MeteringHistoryService` (it already
-  computes the minute averages) — extend it to also compute min/max.
-- **Backfill on startup:** read last ~2 h of `tb_*_agg_1m` into
-  `MeteringHistoryService` buffers so the delta trend chart survives app
-  restarts.
-- Retention job on app start (or pg_cron): aggregates 2 yr, raw 7 days,
-  events unlimited. Statements are in schema.sql.
+- **Phase 3 (implemented):** `MeteringHistoryService` accumulates per-minute
+  stats (all channels, min/max for kW, max for ISEM ground current) and
+  inserts `tb_gimac_agg_1m` / `tb_isem_agg_1m` rows (Normal category,
+  `ON CONFLICT DO NOTHING`) at each completed 1-min window. GIMAC units 1–3
+  only (unit 4 = BUS is not routed through the panel handlers). `samples`
+  is always ≥ 1 on real rows — test tooling may use `samples = 0` as a
+  marker for fake rows.
+- **Backfill on startup (implemented):** a background task reads the last
+  2 h of `tb_gimac_agg_1m` (kw_avg, units 1–3, converted UTC→local for the
+  chart axis) and rebuilds the 1m buffer + delta series on the UI thread,
+  so the 1m delta chart survives app restarts. Panels with live data
+  already flowing are skipped; 1h/1day buffers are not backfilled (they
+  refill from live collection). ISEM aggs are stored but not backfilled
+  (no ISEM trend chart yet).
+- Retention (implemented in `DbLogService.RunRetention`, app start):
+  aggregates 2 yr. Raw tables (if ever enabled): 7 days. Events unlimited.
 - Master gate = `RLC_DB_CONN` presence (`DbWriterService.Enabled`); per-write
   gate = category + `FullLogging` toggle. Legacy `ServiceHub.UseDatabase` /
   `PostgresHistoryRepository` (`operation_history`) stay untouched until

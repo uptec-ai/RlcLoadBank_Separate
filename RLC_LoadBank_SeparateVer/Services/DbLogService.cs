@@ -23,9 +23,19 @@ namespace RLC_LoadBank_SeparateVer.Services
             if (!db.Enabled) return;
 
             StartSession();
+            RunRetention();
             metering.ConnectionChanged += OnMeteringConnectionChanged;
             _plc = plc;
             _plc.ConnectionChanged += OnPlcConnectionChanged;
+        }
+
+        /// <summary>보존정책 (schema.sql과 일치): 1분 집계 2년. 앱 시작 시 1회 실행.</summary>
+        private void RunRetention()
+        {
+            _db.Enqueue(DbLogCategory.Critical,
+                "DELETE FROM tb_gimac_agg_1m WHERE ts < now() - interval '2 years'");
+            _db.Enqueue(DbLogCategory.Critical,
+                "DELETE FROM tb_isem_agg_1m WHERE ts < now() - interval '2 years'");
         }
 
         // ── 앱 세션 (tb_app_session) ──────────────────────────────────────────

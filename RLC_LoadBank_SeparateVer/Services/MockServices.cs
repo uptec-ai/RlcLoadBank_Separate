@@ -163,13 +163,6 @@ namespace RLC_LoadBank_SeparateVer.Services
         public static IAutoOperationService Auto     { get; } = new AutoOperationService();
         // ServiceHub.CLoad      => C부하 시퀀스 (CLoadSequencer)
         public static ICLoadSequencer       CLoad    { get; } = new CLoadSequencer();
-        // ServiceHub.Metering   => ISEM/GIMAC 계측기 TCP 연결 + 500ms 폴링 (창 닫아도 유지)
-        public static IMeteringService      Metering { get; } = new MeteringService();
-        // ServiceHub.MeteringHistory => 계측 트렌드 수집/집계 상주 서비스.
-        // MeteringView를 열지 않아도 장비 연결 시점부터 델타 트렌드가 쌓인다.
-        // 주의: 정적 초기화 순서 때문에 반드시 Metering 선언 뒤에 있어야 함.
-        public static MeteringHistoryService MeteringHistory { get; } = new MeteringHistoryService(Metering);
-
         // ── Database ──────────────────────────────────────────────────────
         // 연결 문자열은 환경변수 RLC_DB_CONN(Npgsql 형식, 대상 DB: DB_RLC)에서만 온다.
         // 미설정이면 DB 기능 전체 비활성 — HMI 동작에는 영향 없음.
@@ -180,6 +173,14 @@ namespace RLC_LoadBank_SeparateVer.Services
         // Critical(알람·세션)은 항상, Normal은 대시보드 토글(FullLogging) ON일 때만 저장.
         // 주의: 정적 초기화 순서 때문에 ConnectionString 선언 뒤에 있어야 함.
         public static DbWriterService DbWriter { get; } = new DbWriterService(ConnectionString);
+
+        // ServiceHub.Metering   => ISEM/GIMAC 계측기 TCP 연결 + 500ms 폴링 (창 닫아도 유지)
+        public static IMeteringService      Metering { get; } = new MeteringService();
+        // ServiceHub.MeteringHistory => 계측 트렌드 수집/집계 상주 서비스.
+        // MeteringView를 열지 않아도 장비 연결 시점부터 델타 트렌드가 쌓이고,
+        // 1분 집계를 tb_*_agg_1m에 저장 + 시작 시 최근 2h 백필(재시작에도 차트 유지).
+        // 주의: 정적 초기화 순서 때문에 반드시 Metering·DbWriter 선언 뒤에 있어야 함.
+        public static MeteringHistoryService MeteringHistory { get; } = new MeteringHistoryService(Metering, DbWriter);
 
         // ServiceHub.DbLog      => 세션/장비연결 이벤트 생산자 (tb_app_session, tb_connection_event).
         // 주의: DbWriter·Metering·Plc 선언 뒤에 있어야 함 (정적 초기화 순서).
