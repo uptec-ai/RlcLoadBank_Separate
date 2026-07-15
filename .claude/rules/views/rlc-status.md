@@ -23,7 +23,12 @@ behind `IPlcService` / `IAutoOperationService` (see `.claude/rules/modbus.md`).
 
 ## Structure
 - `RlcStatusView.xaml` — top bar (PLC comm chips, 자동/수동 mode toggle, E-Stop/
-  Alarm/Heartbeat chips, clock, "⚙ 연결 설정" button), diagram card, 4 bottom cards.
+  Alarm/Heartbeat chips, clock, "DB 기록" toggle, "⚙ 연결 설정" button), diagram
+  card, 4 bottom cards.
+- "DB 기록" toggle → `DbLoggingOn` → `ServiceHub.DbWriter.SaveFullLogging()`:
+  ON = store everything, OFF = Critical only (alarms/sessions). Persisted as
+  app.config `Db.FullLogging`; disabled (greyed) when `RLC_DB_CONN` env var is
+  unset (`DbAvailable`). See `.claude/docs/database-schema.md`.
 - Diagram region hosts `Diagrams/RlcDiagramView` (integrated, connection-aware).
 - Bottom lists use WPF `DataGrid` (alarms + history). Badges colored via
   `AlarmLevelToBrushConverter`.
