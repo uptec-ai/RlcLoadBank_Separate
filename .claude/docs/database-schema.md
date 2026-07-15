@@ -91,6 +91,27 @@ The toggle lives on the dashboard (`RlcStatusView`), binds to
   `DbWriterService.SessionIdRef` as a placeholder arg, resolved to that id
   (or NULL before/without a session) at write time.
 
+## Phase 4 producers (implemented)
+
+- **tb_mc_event** — `Services/McLoggingPlcService.cs`, an `IPlcService`
+  decorator that `ServiceHub.Plc` wraps around the real/mock service. It
+  tracks every `WriteMcCommand` (pending: cmd_ts + `McCommandContext`
+  captured at command time), confirms on the matching FB (`base` for R/L,
+  `base_RESULT` for C, `base_FB` for MCCB), writes `confirmed=false` on 8 s
+  timeout or supersede, and logs `mode='LOCAL'` for R/L FB changes without
+  a pending command (first report after connect = baseline only).
+  `_RESET` commands are excluded (no FB exists). Schema v2 added `SYSTEM`
+  to the mode CHECK for protection auto-off commands.
+- **tb_operation_event / tb_alarm_event** — `RlcStatusViewModel` (see
+  `.claude/rules/views/rlc-status.md` → "DB logging"): `LogOp()` on every
+  completed operation with applied R/L/C capacity snapshot; `AddAlarm`
+  writes episodes (dedup on open ones), falling edges call `AlarmCleared`.
+  op_type vocabulary in use: MC_ON, MC_OFF, SEQ_ON, SEQ_OFF, ALL_OFF,
+  AUTO_COMPLETE, MCCB_ON/OFF/TRIP, MODE_CHANGE. (AUTO_STEP is reserved —
+  current auto operation applies one plan, not discrete steps; C_SEQ_STEP
+  is reserved — the C-load sequence moved into the PLC and the HMI only
+  sees C{n}_CMD/RESULT.)
+
 ## Phase 2 producers (implemented — `Services/DbLogService.cs`)
 
 `ServiceHub.DbLog` writes `tb_app_session` (start on ServiceHub init, end
