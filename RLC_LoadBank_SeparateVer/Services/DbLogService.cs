@@ -196,20 +196,32 @@ namespace RLC_LoadBank_SeparateVer.Services
         // ── 운전 이벤트 조회 (OperationHistoryView) ──────────────────────────
 
         /// <summary>최근 max건의 tb_operation_event를 읽는다 (동기 — UI 스레드에서
-        /// 직접 부르지 말고 Task.Run으로 감쌀 것). 실패/비활성 시 빈 리스트.</summary>
-        public IReadOnlyList<OperationEventRecord> QueryOperations(int max = 500)
+        /// 직접 부르지 말고 Task.Run으로 감쌀 것). 실패/비활성 시 빈 리스트.
+        /// from/to는 로컬 시간(내부에서 UTC 변환), panelNo 지정 시 해당 판넬 +
+        /// 공통 이벤트(panel_no IS NULL — EMG 전체 차단 등)를 함께 반환한다.</summary>
+        public IReadOnlyList<OperationEventRecord> QueryOperations(
+            int max = 500, DateTime? fromLocal = null, DateTime? toLocal = null, int? panelNo = null)
         {
             var list = new List<OperationEventRecord>();
             if (!_db.Enabled) return list;
             try
             {
-                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
-                conn.Open();
-                using var cmd = new NpgsqlCommand(
+                string sql =
                     @"SELECT ts, panel_no, mode, op_type, load_type, phase, target,
                              applied_r_kw, applied_l_kvar, applied_c_kvar, result, detail::text
-                        FROM tb_operation_event ORDER BY ts DESC LIMIT @m", conn);
+                        FROM tb_operation_event WHERE TRUE";
+                if (fromLocal.HasValue) sql += " AND ts >= @f";
+                if (toLocal.HasValue)   sql += " AND ts <= @t";
+                if (panelNo.HasValue)   sql += " AND (panel_no = @p OR panel_no IS NULL)";
+                sql += " ORDER BY ts DESC LIMIT @m";
+
+                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
+                conn.Open();
+                using var cmd = new NpgsqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("m", max);
+                if (fromLocal.HasValue) cmd.Parameters.AddWithValue("f", fromLocal.Value.ToUniversalTime());
+                if (toLocal.HasValue)   cmd.Parameters.AddWithValue("t", toLocal.Value.ToUniversalTime());
+                if (panelNo.HasValue)   cmd.Parameters.AddWithValue("p", (short)panelNo.Value);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                     list.Add(new OperationEventRecord

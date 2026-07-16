@@ -269,7 +269,7 @@ namespace RLC_LoadBank_SeparateVer.Services
         private static bool LoadFullLogging()
         {
             var v = ConfigurationManager.AppSettings[FullLoggingKey];
-            return !bool.TryParse(v, out bool b) || b;   // 기본값 ON
+            return bool.TryParse(v, out bool b) && b;   // 기본값 OFF (Critical만 저장)
         }
 
         public void SaveFullLogging(bool value)
