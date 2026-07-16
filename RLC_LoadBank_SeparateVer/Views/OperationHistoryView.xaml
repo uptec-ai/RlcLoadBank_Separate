@@ -9,6 +9,20 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <!-- 공통 그리드 스타일 -->
+        <Style x:Key="HistGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowHeight" Value="30"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="14">
@@ -25,7 +39,7 @@
 
             <Grid Grid.Row="0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="운전 이력" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderText}"/>
+                    <TextBlock Text="이력 조회" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderText}"/>
                     <TextBlock Text="{Binding SourceText, StringFormat='저장소: {0}'}" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="14,4,0,0"/>
                     <TextBlock Text="{Binding Count, StringFormat='· {0} 건'}" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="8,4,0,0"/>
                     <TextBlock Text="불러오는 중..." FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="8,4,0,0"
@@ -34,9 +48,13 @@
                 <Button Content="↻ 새로고침" HorizontalAlignment="Right" Height="32" Padding="14,0" Command="{Binding RefreshCommand}"/>
             </Grid>
 
-            <!-- 검색 필터: 판넬 선택 → 날짜 → (선택) 시간 → 검색 / 퀵 버튼 -->
+            <!-- 검색 필터: 구분 → 판넬 → 날짜 → (선택) 시간 → 검색 / 퀵 버튼 -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,10,0,0">
-                <TextBlock Text="판넬" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="구분" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                          DisplayMemberPath="Label" Width="150" Height="28" VerticalContentAlignment="Center"/>
+
+                <TextBlock Text="판넬" FontSize="12" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="16,0,6,0"/>
                 <ComboBox ItemsSource="{Binding PanelFilters}" SelectedItem="{Binding SelectedPanelFilter}"
                           DisplayMemberPath="Label" Width="90" Height="28" VerticalContentAlignment="Center"/>
 
@@ -59,44 +77,113 @@
         </Grid>
 
         <Border Grid.Row="1" Style="{StaticResource Card}">
-            <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
-                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0"
-                      RowHeight="30" FontSize="12.5" Background="Transparent" RowBackground="Transparent" CanUserAddRows="False"
-                      EnableRowVirtualization="True">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="시간"      Binding="{Binding TimeText}"   Width="150"/>
-                    <DataGridTextColumn Header="판넬"      Binding="{Binding PanelText}"  Width="75"/>
-                    <DataGridTextColumn Header="모드"      Binding="{Binding ModeText}"   Width="65"/>
-                    <DataGridTextColumn Header="동작"      Binding="{Binding OpText}"     Width="140"/>
-                    <DataGridTextColumn Header="부하"      Binding="{Binding LoadText}"   Width="50"/>
-                    <DataGridTextColumn Header="대상"      Binding="{Binding TargetText}" Width="*"/>
-                    <DataGridTextColumn Header="투입 용량 (kW/kVAr)" Binding="{Binding CapText}" Width="170"/>
-                    <DataGridTemplateColumn Header="결과" Width="80">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <!-- 결과 배지: 성공=녹색, 실패=적색, 중단=주황, 그 외=회색 -->
-                                <Border x:Name="pill" CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EEF1F5">
-                                    <TextBlock x:Name="pillText" Text="{Binding Result}" Foreground="#5A6472" FontSize="11" FontWeight="SemiBold"/>
-                                </Border>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding Result}" Value="성공">
-                                        <Setter TargetName="pill"     Property="Background" Value="#EAF7F0"/>
-                                        <Setter TargetName="pillText" Property="Foreground" Value="#27A86A"/>
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Result}" Value="실패">
-                                        <Setter TargetName="pill"     Property="Background" Value="#FDE8E8"/>
-                                        <Setter TargetName="pillText" Property="Foreground" Value="#E04F4F"/>
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Result}" Value="중단">
-                                        <Setter TargetName="pill"     Property="Background" Value="#FBF1E3"/>
-                                        <Setter TargetName="pillText" Property="Foreground" Value="#E8943A"/>
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
+            <Grid>
+                <!-- ① 운전 이력 -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding OpRows}"
+                          Visibility="{Binding IsOpView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="시간"      Binding="{Binding TimeText}"   Width="150"/>
+                        <DataGridTextColumn Header="판넬"      Binding="{Binding PanelText}"  Width="75"/>
+                        <DataGridTextColumn Header="모드"      Binding="{Binding ModeText}"   Width="65"/>
+                        <DataGridTextColumn Header="동작"      Binding="{Binding OpText}"     Width="140"/>
+                        <DataGridTextColumn Header="부하"      Binding="{Binding LoadText}"   Width="50"/>
+                        <DataGridTextColumn Header="대상"      Binding="{Binding TargetText}" Width="*"/>
+                        <DataGridTextColumn Header="투입 용량 (kW/kVAr)" Binding="{Binding CapText}" Width="170"/>
+                        <DataGridTemplateColumn Header="결과" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="pill" CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EEF1F5">
+                                        <TextBlock x:Name="pillText" Text="{Binding Result}" Foreground="#5A6472" FontSize="11" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Result}" Value="성공">
+                                            <Setter TargetName="pill"     Property="Background" Value="#EAF7F0"/>
+                                            <Setter TargetName="pillText" Property="Foreground" Value="#27A86A"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Result}" Value="실패">
+                                            <Setter TargetName="pill"     Property="Background" Value="#FDE8E8"/>
+                                            <Setter TargetName="pillText" Property="Foreground" Value="#E04F4F"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Result}" Value="중단">
+                                            <Setter TargetName="pill"     Property="Background" Value="#FBF1E3"/>
+                                            <Setter TargetName="pillText" Property="Foreground" Value="#E8943A"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- ② 알람 -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding AlarmRows}"
+                          Visibility="{Binding IsAlarmView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="발생 시각" Binding="{Binding TimeText}"    Width="150"/>
+                        <DataGridTextColumn Header="해제 시각" Binding="{Binding ClearedText}" Width="150"/>
+                        <DataGridTextColumn Header="판넬"      Binding="{Binding PanelText}"   Width="75"/>
+                        <DataGridTextColumn Header="알람"      Binding="{Binding TypeText}"    Width="170"/>
+                        <DataGridTextColumn Header="내용"      Binding="{Binding Detail}"      Width="*"/>
+                        <DataGridTemplateColumn Header="상태" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="pill" CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EAF7F0">
+                                        <TextBlock x:Name="pillText" Text="{Binding Status}" Foreground="#27A86A" FontSize="11" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="활성">
+                                            <Setter TargetName="pill"     Property="Background" Value="#FDE8E8"/>
+                                            <Setter TargetName="pillText" Property="Foreground" Value="#E04F4F"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- ③ 데이터 (ISEM·GIMAC 1분 집계) -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding MeterRows}"
+                          Visibility="{Binding IsMeterView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="시간"        Binding="{Binding TimeText}"   Width="130"/>
+                        <DataGridTextColumn Header="장비"        Binding="{Binding DeviceText}" Width="90"/>
+                        <DataGridTextColumn Header="판넬"        Binding="{Binding PanelText}"  Width="75"/>
+                        <DataGridTextColumn Header="전압 (V)"    Binding="{Binding VoltText}"   Width="90"/>
+                        <DataGridTextColumn Header="전류 (A)"    Binding="{Binding CurrText}"   Width="90"/>
+                        <DataGridTextColumn Header="유효전력 (kW)" Binding="{Binding KwText}"   Width="110"/>
+                        <DataGridTextColumn Header="kW 범위 (분)" Binding="{Binding KwRange}"   Width="120"/>
+                        <DataGridTextColumn Header="역률"        Binding="{Binding PfText}"     Width="80"/>
+                        <DataGridTextColumn Header="주파수 (Hz)" Binding="{Binding HzText}"     Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- ④ 연결 이력 -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding ConnRows}"
+                          Visibility="{Binding IsConnView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="시간"  Binding="{Binding TimeText}"   Width="150"/>
+                        <DataGridTextColumn Header="장비"  Binding="{Binding DeviceText}" Width="100"/>
+                        <DataGridTextColumn Header="판넬"  Binding="{Binding PanelText}"  Width="75"/>
+                        <DataGridTemplateColumn Header="상태" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="pill" CornerRadius="5" Padding="8,2" HorizontalAlignment="Left" Background="#EAF7F0">
+                                        <TextBlock x:Name="pillText" Text="{Binding Status}" Foreground="#27A86A" FontSize="11" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="해제">
+                                            <Setter TargetName="pill"     Property="Background" Value="#EEF1F5"/>
+                                            <Setter TargetName="pillText" Property="Foreground" Value="#5A6472"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="내용" Binding="{Binding Detail}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>
