@@ -27,8 +27,9 @@ behind `IPlcService` / `IAutoOperationService` (see `.claude/rules/modbus.md`).
   card, 4 bottom cards.
 - "DB 기록" toggle → `DbLoggingOn` → `ServiceHub.DbWriter.SaveFullLogging()`:
   ON = store everything, OFF = Critical only (alarms/sessions). Persisted as
-  app.config `Db.FullLogging`; disabled (greyed) when `RLC_DB_CONN` env var is
-  unset (`DbAvailable`). See `.claude/docs/database-schema.md`.
+  app.config `Db.FullLogging` (**default OFF**); disabled (greyed) when
+  `RLC_DB_CONN` env var is unset (`DbAvailable`).
+  See `.claude/docs/database-schema.md`.
 - Diagram region hosts `Diagrams/RlcDiagramView` (integrated, connection-aware).
 - Bottom lists use WPF `DataGrid` (alarms + history). Badges colored via
   `AlarmLevelToBrushConverter`.

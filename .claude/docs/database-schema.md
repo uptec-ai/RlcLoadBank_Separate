@@ -50,7 +50,8 @@ Every write carries a `DbLogCategory`:
 
 The toggle lives on the dashboard (`RlcStatusView`), binds to
 `ServiceHub.DbWriter.FullLogging`, persists as app.config key
-`Db.FullLogging` (default ON), and drops Normal writes at enqueue time.
+`Db.FullLogging` (**default OFF** since 2026-07-15 — only Critical writes
+until the operator turns it on), and drops Normal writes at enqueue time.
 
 ## Write-path rules (implemented in `Services/DbWriterService.cs`)
 
