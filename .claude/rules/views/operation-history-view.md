@@ -5,14 +5,24 @@ paths:
   - "**/ViewModels/OperationHistoryViewModel.cs"
 ---
 
-# View: OperationHistoryView ("운전 이력" — HISTORY)
+# View: OperationHistoryView ("이력 조회" — HISTORY)
 
 ## Purpose
-Read-only operation history: structured grid over **`tb_operation_event`**
-(time / panel / mode / operation / load / target / applied R-L-C capacity /
-color-coded result badge), with manual refresh and a source label. Hosted in
-`NaviFrame` via `App.HistoryView` (HISTORY button). Self-contained
-`UserControl` — sets its own `DataContext = new OperationHistoryViewModel()`.
+Read-only history browser with a **category ComboBox ("구분")** switching
+between four sources, each with its own grid (stacked DataGrids toggled via
+`IsOpView/IsAlarmView/IsMeterView/IsConnView` + BooleanToVisibility):
+
+| Category (Key) | Source | Notable columns |
+|---|---|---|
+| 운전 이력 (OP) | tb_operation_event | mode/op/target/capacity + result badge |
+| 알람 (ALARM) | tb_alarm_event | raised/cleared, type(한글), 활성(red)/해제(green) badge |
+| 데이터 ISEM·GIMAC (METER) | tb_gimac_agg_1m ∪ tb_isem_agg_1m | V/I/kW avg + per-min kW range/PF/Hz |
+| 연결 이력 (CONN) | tb_connection_event | device, 연결/해제 badge |
+
+Shared filters (panel / period / optional HH:mm / quick-range) apply to all
+categories; category change reloads immediately. Hosted in `NaviFrame` via
+`App.HistoryView` (HISTORY button). Self-contained `UserControl` — sets its
+own `DataContext = new OperationHistoryViewModel()`.
 
 ## Status
 Implemented (Phase 5, 2026-07-15). Reads the DB; falls back to the
