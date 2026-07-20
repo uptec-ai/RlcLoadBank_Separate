@@ -51,6 +51,16 @@ namespace RLC_LoadBank_SeparateVer.Services
 
             // Last polled state (shared between DI and coil polling)
             public bool[] LastState;
+
+            // NModbus 마스터는 스레드 안전이 아님 — 폴링 읽기와 명령 쓰기가 같은
+            // TCP 스트림을 동시에 쓰면 응답이 섞여 호출 스레드가 무한 대기한다.
+            // IoLock으로 마스터 접근을 직렬화한다.
+            public readonly object IoLock = new object();
+
+            // 명령은 UI 스레드가 아닌 백그라운드에서, 판넬별 발행 순서를 보존하며
+            // 실행한다 (C부하/EMG 시퀀스의 순서 보장). ChainLock은 체인 교체 원자화용.
+            public readonly object ChainLock = new object();
+            public Task WriteChain = Task.CompletedTask;
         }
 
         private readonly PanelState[] _panels;
@@ -143,8 +153,14 @@ namespace RLC_LoadBank_SeparateVer.Services
                     RaiseConn(index);
                     return;
                 }
+                // 유한 타임아웃 필수: 미설정(무한)이면 응답 유실 시 호출 스레드가
+                // 영원히 블록된다 (과거 UI 멈춤의 원인 중 하나).
+                tcp.ReceiveTimeout = 2000;
+                tcp.SendTimeout    = 2000;
                 pn.Tcp       = tcp;
                 pn.Master    = _factory.CreateMaster(tcp);
+                pn.Master.Transport.ReadTimeout  = 2000;
+                pn.Master.Transport.WriteTimeout = 2000;
                 pn.Cts       = new CancellationTokenSource();
                 pn.Connected = true;
                 RaiseConn(index);
@@ -165,14 +181,14 @@ namespace RLC_LoadBank_SeparateVer.Services
                     if (UseDiscreteInputsForFeedback)
                     {
                         // Production: ReadInputs (FC2) covers all DI including status tags
-                        vals      = pn.Master.ReadInputs(pn.UnitId, 0, pn.DiCount);
                         addrToTag = pn.DiAddrToTag;
+                        lock (pn.IoLock) vals = pn.Master.ReadInputs(pn.UnitId, 0, pn.DiCount);
                     }
                     else
                     {
                         // Test server: ReadCoils (FC1) — only MC/C-sub range
-                        vals      = pn.Master.ReadCoils(pn.UnitId, 0, pn.DoCount);
                         addrToTag = pn.DoAddrToTag;
+                        lock (pn.IoLock) vals = pn.Master.ReadCoils(pn.UnitId, 0, pn.DoCount);
                     }
 
                     for (int i = 0; i < vals.Length && i < pn.LastState.Length; i++)
@@ -210,13 +226,29 @@ namespace RLC_LoadBank_SeparateVer.Services
             var pn = _panels[panelIndex];
             if (!pn.Connected || pn.Master == null) return;
             if (!pn.DoTagToAddr.TryGetValue(mcTag, out var addr)) return;
-            try { pn.Master.WriteSingleCoil(pn.UnitId, addr, on); } catch { }
 
-            // PollLoop은 변화가 있을 때만 FeedbackReceived를 발생시킨다.
-            // 이미 원하는 값이면 코일이 바뀌지 않으므로 폴링에서 감지되지 않음.
-            // 이 경우 즉시 피드백을 발생시켜 UI 상태 동기화를 보장한다.
-            if (addr < pn.LastState.Length && pn.LastState[addr] == on)
-                RaiseFeedback(panelIndex, mcTag, on);
+            // UI 스레드에서 동기 소켓 I/O 금지 (modbus.md) — 판넬별 체인으로
+            // 발행 순서를 보존하며 백그라운드에서 쓴다. IoLock이 폴링 읽기와의
+            // 동시 접근(응답 섞임 → 무한 대기 → UI 멈춤)을 차단한다.
+            lock (pn.ChainLock)
+            {
+                pn.WriteChain = pn.WriteChain.ContinueWith(_ =>
+                {
+                    try
+                    {
+                        var master = pn.Master;
+                        if (master == null || !pn.Connected) return;
+                        lock (pn.IoLock) master.WriteSingleCoil(pn.UnitId, addr, on);
+                    }
+                    catch { }
+
+                    // PollLoop은 변화가 있을 때만 FeedbackReceived를 발생시킨다.
+                    // 이미 원하는 값이면 코일이 바뀌지 않으므로 폴링에서 감지되지 않음.
+                    // 이 경우 즉시 피드백을 발생시켜 UI 상태 동기화를 보장한다.
+                    if (addr < pn.LastState.Length && pn.LastState[addr] == on)
+                        RaiseFeedback(panelIndex, mcTag, on);
+                }, TaskScheduler.Default);
+            }
         }
 
         public event EventHandler<int>        ConnectionChanged;
