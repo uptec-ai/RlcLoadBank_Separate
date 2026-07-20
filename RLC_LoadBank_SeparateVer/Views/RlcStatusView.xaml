@@ -16,6 +16,9 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <!-- 키보드 포커스 차단: 클릭 후 Enter/Space가 토글을 재클릭해
+                 표시가 뒤집히는 것 방지 (마우스/터치 조작 전용) -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
@@ -592,6 +595,17 @@
                                         <CheckBox Content="진상 (C부하 보상)" IsChecked="{Binding LeadingPf}"
                                                   FontSize="11" Margin="0,0,0,6"/>
                                     </StackPanel>
+                                    <!-- MCCB 제어: 자동운전 시작 전 투입/개방 (수동 카드와 동일 명령) -->
+                                    <TextBlock Text="MCCB 제어" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource SubInkBrush}" Margin="0,4,0,6"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Content="MCCB ON" Style="{StaticResource BtnGreen}" Margin="0,0,4,0" Command="{Binding MccbOnCommand}"/>
+                                        <Button Grid.Column="1" Content="MCCB OFF" Style="{StaticResource BtnGhost}" Command="{Binding MccbOffCommand}"/>
+                                    </Grid>
                                     <!-- 운전 제어: 2버튼 동일 너비 -->
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
