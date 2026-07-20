@@ -79,6 +79,16 @@ R/L/C individual target setpoints (kW/kvar) bound to `RTarget/LTarget/CTarget`;
   (FB lands ~0.5 s later); sequence ops are accurate.
 
 ## Gotchas
+- **`Seg` ToggleButtons** (자동/수동, 개별/전력·역률, DB 기록) are
+  `Focusable=False` and their commands go through `SetMode`/`SetAutoMode`,
+  which re-raise `IsAuto/IsManual/IsIndividual/IsPowerPf` unconditionally:
+  a ToggleButton flips its own IsChecked via SetCurrentValue (overriding the
+  OneWay binding), and re-selecting the same mode produces no PropertyChanged,
+  so without the forced raise the visual stays untoggled (the old
+  "Enter after click clears the toggle" bug). Keep both when adding segs.
+- The 자동운전 card also has MCCB ON/OFF buttons (same `MccbOn/OffCommand`
+  as the manual card) so auto operation can be started without switching
+  to manual mode.
 - MC visuals come from `McStateToBrushConverter` (legend: ON green / OFF grey /
   COMM WAIT orange / TRIP & ALARM red). Style `McCircle` is in `App.xaml`.
 - PLC1 renders **24** R + 24 L MCs (3 phase rows) per the precondition — richer

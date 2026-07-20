@@ -192,8 +192,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             _subscribedPlc.ConnectionChanged += OnPlcConnectionChanged;
 
             bool anyConnected = PlcCommOk;
-            SetAutoCommand   = new DelegateCommand(() => Mode = OperationMode.Auto);
-            SetManualCommand = new DelegateCommand(() => Mode = OperationMode.Manual);
+            SetAutoCommand   = new DelegateCommand(() => SetMode(OperationMode.Auto));
+            SetManualCommand = new DelegateCommand(() => SetMode(OperationMode.Manual));
             LoadOnCommand  = new DelegateCommand<string>(t => ManualLoad(t, true),  _ => CanOperate);
             LoadOffCommand = new DelegateCommand<string>(t => ManualLoad(t, false), _ => CanOperate);
             MccbOnCommand  = new DelegateCommand(() => Mccb("ON"),   () => CanOperate);
@@ -211,8 +211,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             ClearHistoryCommand = new DelegateCommand(() => History.Clear());
             AbortSequenceCommand = new DelegateCommand(() => _seqCts?.Cancel(), () => IsSequenceRunning);
             OpenConnectionCommand  = new DelegateCommand(OpenConnection);
-            SetAutoIndividualCommand = new DelegateCommand(() => AutoMode = AutoMode.Individual);
-            SetAutoPowerPfCommand    = new DelegateCommand(() => AutoMode = AutoMode.PowerPf);
+            SetAutoIndividualCommand = new DelegateCommand(() => SetAutoMode(AutoMode.Individual));
+            SetAutoPowerPfCommand    = new DelegateCommand(() => SetAutoMode(AutoMode.PowerPf));
 
             Mode = OperationMode.Auto;
 
@@ -1123,6 +1123,24 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        // Seg 토글버튼은 클릭/엔터 시 자기 IsChecked를 스스로 뒤집는다(SetCurrentValue가
+        // OneWay 바인딩 표시값을 덮어씀). 같은 모드를 재선택하면 SetValue가 변경 없음으로
+        // 판단해 PropertyChanged를 올리지 않아 표시가 꺼진 채 남으므로, 값과 무관하게
+        // 항상 강제 raise하여 표시를 VM 상태로 복원한다.
+        private void SetMode(OperationMode m)
+        {
+            Mode = m;
+            RaisePropertyChanged(nameof(IsAuto));
+            RaisePropertyChanged(nameof(IsManual));
+        }
+
+        private void SetAutoMode(AutoMode m)
+        {
+            AutoMode = m;
+            RaisePropertyChanged(nameof(IsIndividual));
+            RaisePropertyChanged(nameof(IsPowerPf));
+        }
 
         private HistoryEntry AddHistory(string panel, string ev, string result)
         {
