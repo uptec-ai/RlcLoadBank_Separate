@@ -38,6 +38,12 @@ master.WriteMultipleCoils(slaveId, startAddress, values);
 ## Runtime rules
 - Poll feedback on a **background loop**; marshal updates to the UI thread
   (`Dispatcher` / VM property set). Never block the UI thread on socket I/O.
+- **The NModbus master is NOT thread-safe.** All master calls must be
+  serialized per panel (`PanelState.IoLock` in `ModbusPlcService`), and
+  commands run on the per-panel `WriteChain` (background, order-preserving)
+  — a write racing a poll read crosses the responses and blocks the caller
+  forever. Always set finite TCP + `Master.Transport` timeouts (2 s);
+  the defaults are infinite and turned that race into a UI freeze.
 - Treat read/write timeouts and disconnects as recoverable: log (NLog),
   reconnect with backoff, and flag the panel as "comms lost" in the UI.
 - **Interlocks live in the PLC**, but the HMI must still gate commands: respect
