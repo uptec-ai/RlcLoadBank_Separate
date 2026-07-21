@@ -49,6 +49,11 @@ namespace RLC_LoadBank_SeparateVer.Services
         private const double HourMin   = 60.0;
         private const double DayHr     = 24.0;
 
+        // raw 저장 간격 (1초) — tb_gimac_raw / tb_isem_raw (Normal, 토글 OFF 시 미저장)
+        private const double RawSec = 1.0;
+        private readonly DateTime[]                _lastRawG = new DateTime[3];  // GIMAC unit별 마지막 raw ts
+        private readonly Dictionary<int, DateTime> _lastRawI = new();            // ISEM unit별 마지막 raw ts
+
         private readonly DbWriterService _db;   // null/disabled → in-memory only
 
         // Raw / aggregated buffers [panelIdx 0/1/2]
@@ -135,6 +140,13 @@ namespace RLC_LoadBank_SeparateVer.Services
             var    ts = r.Timestamp;
 
             _gimacAcc[idx].Add(r);
+
+            // 1초 raw 저장 (폴링은 ~500ms이므로 매 2번째 샘플)
+            if (_db != null && _db.Enabled && (ts - _lastRawG[idx]).TotalSeconds >= RawSec)
+            {
+                _lastRawG[idx] = ts;
+                EnqueueGimacRaw(idx + 1, r);
+            }
 
             // ── Raw buffer ────────────────────────────────────────────────────
             var raw = _rawBuf[idx];
@@ -230,9 +242,17 @@ namespace RLC_LoadBank_SeparateVer.Services
             int uid = r.Device.UnitId;
             _lastIsem[uid] = r;
 
-            if (_db == null || !_db.Enabled) return;   // 집계는 DB 저장 전용
+            if (_db == null || !_db.Enabled) return;   // 집계·raw는 DB 저장 전용
 
             var ts = r.Timestamp;
+
+            // 1초 raw 저장
+            if (!_lastRawI.TryGetValue(uid, out var lastRaw) || (ts - lastRaw).TotalSeconds >= RawSec)
+            {
+                _lastRawI[uid] = ts;
+                EnqueueIsemRaw(uid, r);
+            }
+
             if (!_isemAcc.TryGetValue(uid, out var acc))
             {
                 _isemAcc[uid]    = acc = new IsemAcc();
@@ -246,6 +266,53 @@ namespace RLC_LoadBank_SeparateVer.Services
                 EnqueueIsemAgg(uid, ts, acc);
                 _isemAcc[uid] = new IsemAcc();
             }
+        }
+
+        // ── DB persistence (1-second raw) ─────────────────────────────────────
+        // PK 없음(파티션 테이블) → ON CONFLICT 불필요. 1초 주기라 unit·ts 충돌 없음.
+
+        private void EnqueueGimacRaw(int unitId, GimacReading r)
+        {
+            _db.Enqueue(DbLogCategory.Normal,
+                @"INSERT INTO tb_gimac_raw
+                    (ts, unit_id, panel_no, volt_avg, curr_avg, kw, kvar, kva, pf, hz,
+                     volt_a, volt_b, volt_c, volt_ab, volt_bc, volt_ca,
+                     curr_a, curr_b, curr_c, thd_v_a, thd_v_b, thd_v_c, thd_i_a, thd_i_b, thd_i_c)
+                  VALUES (@ts,@u,@p,@va,@ca,@kw,@kq,@ks,@pf,@hz,
+                          @vla,@vlb,@vlc,@vab,@vbc,@vca,@cla,@clb,@clc,
+                          @tva,@tvb,@tvc,@tia,@tib,@tic)",
+                ("ts", r.Timestamp), ("u", (short)unitId),
+                ("p", (object)(short)unitId),
+                ("va", r.AvgVoltage), ("ca", r.AvgCurrent),
+                ("kw", r.ActivePower / 1000f), ("kq", r.ReactivePower / 1000f), ("ks", r.ApparentPower / 1000f),
+                ("pf", r.PowerFactor), ("hz", r.Frequency),
+                ("vla", r.VoltA), ("vlb", r.VoltB), ("vlc", r.VoltC),
+                ("vab", r.VoltAB), ("vbc", r.VoltBC), ("vca", r.VoltCA),
+                ("cla", r.CurrA), ("clb", r.CurrB), ("clc", r.CurrC),
+                ("tva", r.VoltThdA), ("tvb", r.VoltThdB), ("tvc", r.VoltThdC),
+                ("tia", r.CurrThdA), ("tib", r.CurrThdB), ("tic", r.CurrThdC));
+        }
+
+        private void EnqueueIsemRaw(int unitId, IsemReading r)
+        {
+            int? panel = DbLogService.PanelOf(DeviceType.ISEM, unitId);
+            _db.Enqueue(DbLogCategory.Normal,
+                @"INSERT INTO tb_isem_raw
+                    (ts, unit_id, panel_no, volt_l3l1, volt_l1l2, volt_l2l3, volt_avg,
+                     curr_l1, curr_l2, curr_l3, ground_ma, kw, kvar, pf, hz_curr, hz_volt,
+                     thd_i_avg, thd_i_l1, thd_i_l2, thd_i_l3, thd_v_avg, thd_v_l3l1, thd_v_l1l2, thd_v_l2l3)
+                  VALUES (@ts,@u,@p,@v31,@v12,@v23,@va,@c1,@c2,@c3,@g,@kw,@kq,@pf,@hc,@hv,
+                          @tia,@ti1,@ti2,@ti3,@tva,@tv31,@tv12,@tv23)",
+                ("ts", r.Timestamp), ("u", (short)unitId),
+                ("p", panel.HasValue ? (object)(short)panel.Value : null),
+                ("v31", (float)r.VoltL3L1), ("v12", (float)r.VoltL1L2), ("v23", (float)r.VoltL2L3),
+                ("va", (float)r.AvgVoltage),
+                ("c1", (float)r.CurrL1), ("c2", (float)r.CurrL2), ("c3", (float)r.CurrL3),
+                ("g", (float)r.GroundCurrent),
+                ("kw", (float)r.ActivePower), ("kq", (float)r.ReactivePower), ("pf", (float)r.PowerFactor),
+                ("hc", (float)r.CurrentFrequency), ("hv", (float)r.VoltageFrequency),
+                ("tia", (float)r.AvgCurrentThd), ("ti1", (float)r.CurrThdL1), ("ti2", (float)r.CurrThdL2), ("ti3", (float)r.CurrThdL3),
+                ("tva", (float)r.AvgVoltageThd), ("tv31", (float)r.VoltThdL3L1), ("tv12", (float)r.VoltThdL1L2), ("tv23", (float)r.VoltThdL2L3));
         }
 
         // ── DB persistence (1-min aggregates) ─────────────────────────────────

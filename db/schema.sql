@@ -27,6 +27,9 @@ ON CONFLICT (version) DO NOTHING;
 INSERT INTO tb_schema_version (version, description)
 VALUES (2, 'tb_mc_event.mode: +SYSTEM (protection auto-off commands)')
 ON CONFLICT (version) DO NOTHING;
+INSERT INTO tb_schema_version (version, description)
+VALUES (3, '1s raw tables (monthly partitions, ~12mo retention)')
+ON CONFLICT (version) DO NOTHING;
 
 -- ── 앱 실행 세션 (이력 조회의 기준 축) ──────────────────────────────
 CREATE TABLE IF NOT EXISTS tb_app_session (
@@ -152,19 +155,91 @@ CREATE TABLE IF NOT EXISTS tb_isem_agg_1m (
 CREATE INDEX IF NOT EXISTS ix_tb_isem_agg_1m_ts ON tb_isem_agg_1m USING brin (ts);
 
 -- ====================================================================
--- (옵션) raw 테이블 — 시운전/정밀 분석 기간에만 활성화.
--- 500ms 원본은 하루 ~220만 row이므로 보존 3~7일 삭제 잡과 함께 운용할 것.
--- 컬럼은 C# GimacReading / IsemReading 전 필드를 1:1로 두면 됨.
--- CREATE TABLE IF NOT EXISTS tb_gimac_raw ( ts timestamptz, unit_id smallint, ... );
--- CREATE TABLE IF NOT EXISTS tb_isem_raw  ( ts timestamptz, unit_id smallint, ... );
+-- raw 계측 (v3) — 1초 간격 전체 필드 스냅샷, GimacReading/IsemReading 미러.
+--   · 월별 RANGE 파티션 (PARTITION BY RANGE (ts))
+--   · PK 없음 (대량 시계열; (unit_id, ts) 인덱스만)
+--   · 보존 ~12개월: 만료 파티션은 DROP TABLE로 통째 제거 (DELETE 아님 → I/O 0)
+-- 파티션 생성/삭제는 fn_maintain_raw_partitions()가 담당하며,
+-- 앱 시작 시 EnsureSchema가 이 스크립트를 재실행하면서 매번 호출한다.
 -- ====================================================================
 
+-- ── GIMAC raw (1초) ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_gimac_raw (
+    ts        timestamptz NOT NULL,
+    unit_id   smallint    NOT NULL,
+    panel_no  smallint,
+    volt_avg  real, curr_avg real,
+    kw        real, kvar real, kva real, pf real, hz real,
+    volt_a    real, volt_b real, volt_c real,   -- 상전압 (phase-neutral)
+    volt_ab   real, volt_bc real, volt_ca real, -- 선간전압
+    curr_a    real, curr_b real, curr_c real,
+    thd_v_a   real, thd_v_b real, thd_v_c real,
+    thd_i_a   real, thd_i_b real, thd_i_c real
+) PARTITION BY RANGE (ts);
+CREATE INDEX IF NOT EXISTS ix_tb_gimac_raw_unit_ts ON tb_gimac_raw (unit_id, ts);
+COMMENT ON TABLE tb_gimac_raw IS 'GIMAC 1초 raw. 월 파티션, ~12개월 보존. PK 없음.';
+
+-- ── ISEM raw (1초) ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tb_isem_raw (
+    ts        timestamptz NOT NULL,
+    unit_id   smallint    NOT NULL,
+    panel_no  smallint,
+    volt_l3l1 real, volt_l1l2 real, volt_l2l3 real, volt_avg real,
+    curr_l1   real, curr_l2 real, curr_l3 real, ground_ma real,
+    kw        real, kvar real, pf real,
+    hz_curr   real, hz_volt real,
+    thd_i_avg real, thd_i_l1 real, thd_i_l2 real, thd_i_l3 real,
+    thd_v_avg real, thd_v_l3l1 real, thd_v_l1l2 real, thd_v_l2l3 real
+) PARTITION BY RANGE (ts);
+CREATE INDEX IF NOT EXISTS ix_tb_isem_raw_unit_ts ON tb_isem_raw (unit_id, ts);
+COMMENT ON TABLE tb_isem_raw IS 'ISEM 1초 raw. 월 파티션, ~12개월 보존. PK 없음.';
+
+-- ── 파티션 유지/보존 함수 (앱 시작 시 호출) ──────────────────────────
+-- [now-1 .. now+2] 개월 파티션을 생성(재시작 없이 월 경계 넘어가도 커버)하고,
+-- p_retention_months(기본 12) 이전 월 파티션을 DROP 한다.
+CREATE OR REPLACE FUNCTION fn_maintain_raw_partitions(p_retention_months int DEFAULT 12)
+RETURNS void LANGUAGE plpgsql AS $func$
+DECLARE
+    parents text[] := ARRAY['tb_gimac_raw', 'tb_isem_raw'];
+    par     text;
+    m0      date := date_trunc('month', now())::date;
+    cutoff  date := (date_trunc('month', now()) - make_interval(months => p_retention_months))::date;
+    k       int;
+    m       date;
+    pname   text;
+    r       record;
+BEGIN
+    FOREACH par IN ARRAY parents LOOP
+        FOR k IN -1..2 LOOP
+            m := (m0 + make_interval(months => k))::date;
+            pname := format('%s_%s', par, to_char(m, 'YYYYMM'));
+            IF to_regclass(pname) IS NULL THEN
+                EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                               pname, par, m, (m + interval '1 month')::date);
+            END IF;
+        END LOOP;
+        FOR r IN
+            SELECT c.relname AS nm
+            FROM pg_inherits i
+            JOIN pg_class c  ON c.oid = i.inhrelid
+            JOIN pg_class pc ON pc.oid = i.inhparent
+            WHERE pc.relname = par
+              AND c.relname ~ ('^' || par || '_[0-9]{6}$')
+              AND to_date(right(c.relname, 6), 'YYYYMM') < cutoff
+        LOOP
+            EXECUTE format('DROP TABLE IF EXISTS %I', r.nm);
+        END LOOP;
+    END LOOP;
+END;
+$func$;
+
+SELECT fn_maintain_raw_partitions(12);
+
 -- ====================================================================
--- 보존정책 (권장 — 앱 시작 시 1회 또는 pg_cron):
---   이벤트 테이블: 무기한 (연 수십만 row 수준으로 작음)
---   1분 집계     : 2년   DELETE FROM tb_gimac_agg_1m WHERE ts < now() - interval '2 years';
---                        DELETE FROM tb_isem_agg_1m  WHERE ts < now() - interval '2 years';
---   raw(옵션)    : 7일
+-- 보존정책 요약:
+--   이벤트 테이블 : 무기한 (연 수십만 row 수준)
+--   1분 집계      : 2년  (DbLogService.RunRetention — DELETE)
+--   1초 raw       : ~12개월 (월 파티션 DROP — fn_maintain_raw_partitions)
 -- ====================================================================
 
 -- ====================================================================

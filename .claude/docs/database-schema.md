@@ -12,10 +12,18 @@ the HMI runs normally.
 1. **Status = transition events**, never periodic snapshots. Current state
    lives in memory (ServiceHub); DB stores history only. State at time T =
    last event row before T.
-2. **Metering values = 1-minute aggregates** (avg/min/max), compressed:
-   720 samples/min → 1 row (720:1), `real`/`smallint` compact types, BRIN
-   time indexes. Raw 500 ms tables are optional (commented in schema.sql,
-   3–7 day retention if enabled).
+2. **Metering values = two tiers.**
+   - **1-second raw** (`tb_gimac_raw`/`tb_isem_raw`, schema v3): full
+     GimacReading/IsemReading snapshot every 1 s. `PARTITION BY RANGE (ts)`,
+     monthly partitions, **no PK** (`(unit_id, ts)` index only), ~12-month
+     retention by dropping expired partitions (`fn_maintain_raw_partitions`,
+     run each startup via EnsureSchema). Written by `MeteringHistoryService`
+     (Normal category — toggle-gated).
+   - **1-minute aggregates** (avg/min/max) kept alongside for fast wide-range
+     trend queries (reads ~1/60 the rows of raw) and >1yr history; `real`/
+     `smallint` compact types, BRIN time index, 2-year retention (DELETE).
+   Transient/fast events (inrush, sub-second transients) are the PLC's job,
+   not captured in raw. Design decisions per user 2026-07-16.
 3. **Device identity denormalized** per row: `device_type + unit_id +
    panel_no`. No device master table — records the panel mapping *as of
    write time* (panels can run 1/2/3-connected in any combination).
