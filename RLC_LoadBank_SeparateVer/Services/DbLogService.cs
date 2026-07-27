@@ -280,56 +280,6 @@ namespace RLC_LoadBank_SeparateVer.Services
             return list;
         }
 
-        /// <summary>계측 1분 집계 조회 — GIMAC과 ISEM을 합쳐 최신순으로 반환.
-        /// ISEM 전류는 L1~L3 평균으로 단일화.</summary>
-        public IReadOnlyList<MeterAggRecord> QueryMeterAggs(
-            int max = 500, DateTime? fromLocal = null, DateTime? toLocal = null, int? panelNo = null)
-        {
-            var list = new List<MeterAggRecord>();
-            if (!_db.Enabled) return list;
-            try
-            {
-                string cond = "";
-                if (fromLocal.HasValue) cond += " AND ts >= @f";
-                if (toLocal.HasValue)   cond += " AND ts <= @t";
-                if (panelNo.HasValue)   cond += " AND (panel_no = @p OR panel_no IS NULL)";
-                string sql = $@"SELECT * FROM (
-                        SELECT ts, 'GIMAC' AS dt, unit_id, panel_no, volt_avg, curr_avg,
-                               kw_avg, kw_min, kw_max, pf_avg, hz_avg
-                          FROM tb_gimac_agg_1m WHERE TRUE{cond}
-                        UNION ALL
-                        SELECT ts, 'ISEM', unit_id, panel_no, volt_avg,
-                               ((curr_l1_avg + curr_l2_avg + curr_l3_avg) / 3)::real,
-                               kw_avg, kw_min, kw_max, pf_avg, hz_avg
-                          FROM tb_isem_agg_1m WHERE TRUE{cond}
-                    ) u ORDER BY ts DESC LIMIT @m";
-
-                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
-                conn.Open();
-                using var cmd = BuildFilteredCommand(conn, sql, max, fromLocal, toLocal, panelNo);
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
-                    list.Add(new MeterAggRecord
-                    {
-                        Ts         = r.GetDateTime(0).ToLocalTime(),
-                        DeviceType = r.GetString(1),
-                        UnitId     = r.GetInt16(2),
-                        PanelNo    = r.IsDBNull(3) ? (int?)null : r.GetInt16(3),
-                        VoltAvg    = ToD(r.GetValue(4)),
-                        CurrAvg    = ToD(r.GetValue(5)),
-                        KwAvg      = ToD(r.GetValue(6)),
-                        KwMin      = ToD(r.GetValue(7)),
-                        KwMax      = ToD(r.GetValue(8)),
-                        PfAvg      = ToD(r.GetValue(9)),
-                        HzAvg      = ToD(r.GetValue(10)),
-                    });
-            }
-            catch (Exception ex) { Log.Warn(ex, "QueryMeterAggs failed: {0}", ex.Message); }
-            return list;
-
-            static double ToD(object v) => v is DBNull ? 0 : Convert.ToDouble(v);
-        }
-
         private static double D(Npgsql.NpgsqlDataReader r, int i) => r.IsDBNull(i) ? 0 : Convert.ToDouble(r.GetValue(i));
 
         /// <summary>GIMAC 1분 집계 조회 — GIMAC 전용 열(무효/피상전력 포함).</summary>

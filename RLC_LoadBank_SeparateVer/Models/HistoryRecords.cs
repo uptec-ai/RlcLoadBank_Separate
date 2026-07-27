@@ -12,22 +12,6 @@ namespace RLC_LoadBank_SeparateVer.Models
         public string    Detail    { get; set; }
     }
 
-    /// <summary>tb_gimac_agg_1m ∪ tb_isem_agg_1m 공통 열 (레거시 — 통합 조회용).</summary>
-    public class MeterAggRecord
-    {
-        public DateTime Ts         { get; set; }
-        public string   DeviceType { get; set; }
-        public int      UnitId     { get; set; }
-        public int?     PanelNo    { get; set; }
-        public double   VoltAvg    { get; set; }
-        public double   CurrAvg    { get; set; }
-        public double   KwAvg      { get; set; }
-        public double   KwMin      { get; set; }
-        public double   KwMax      { get; set; }
-        public double   PfAvg      { get; set; }
-        public double   HzAvg      { get; set; }
-    }
-
     /// <summary>tb_gimac_agg_1m 1 row (조회용 — DbLogService.QueryGimacAggs).
     /// GIMAC 고유: 무효/피상전력 포함, 전류는 3상 평균 단일값.</summary>
     public class GimacAggRecord
