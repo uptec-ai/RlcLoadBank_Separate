@@ -27,7 +27,7 @@ Loads only while editing chart / trend Views or ViewModels. Use the **v9** API
 - Suspend redraws while bulk-appending: `using (surface.SuspendUpdates()) { ... }`.
 - Plot the metering items defined in `.claude/docs/measurement-items.md`
   (voltage, current, power, frequency, PF, THD, harmonics). Group by source:
-  GIMAC 1000 (BUS IN / OUT 1·2·3) and EOCR-iSEM2 + sPDM (lines #1–#10).
+  GIMAC 1000 (BUS IN / OUT 1·2·3) and EOCR-iSEM2 + sPDM meter units.
 
 ## Conventions
 - Keep data series in the ViewModel; keep axes/annotations in XAML.

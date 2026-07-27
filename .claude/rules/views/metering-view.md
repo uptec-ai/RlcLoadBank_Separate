@@ -35,7 +35,7 @@ persistence) — see buffer capacities below.
 
 ## Data & Modbus tags
 - Devices: **GIMAC 1000** (V/I/P/PF/Hz/THD) at BUS IN/OUT, **EOCR-iSEM2 + sPDM**
-  on lines #1–#10 — see `.claude/docs/measurement-items.md`.
+  meter units (count config-driven) — see `.claude/docs/measurement-items.md`.
 - GIMAC/ISEM readings arrive on the UI thread roughly every **500 ms** (device
   response time dependent) via `ServiceHub` device-received events.
 - No `*_FB`/`*_CMD` control tags here — this is a read-only display screen.

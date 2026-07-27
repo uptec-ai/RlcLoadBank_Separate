@@ -9,7 +9,7 @@ ranges and Modbus/comm registers.
 | Instrument | Model / vendor | Location | Role |
 | --- | --- | --- | --- |
 | Power meter | **GIMAC 1000 (EX)** / LS ELECTRIC | panel front; measures at **BUS IN, BUS OUT 1/2/3** | full power-quality metering |
-| Overcurrent relay + meter | **EOCR-iSEM2** (relay) + **sPDM** (meter) / Schneider | relay inside panel, meter on front; measures **lines #1–#10** | overcurrent protection + per-line power quality / protection state |
+| Overcurrent relay + meter | **EOCR-iSEM2** (relay) + **sPDM** (meter) / Schneider | relay inside panel, meter on front; one per **ISEM meter unit** (source docx enumerates up to #1–#10; deployed count is config-driven via `DeviceConfigService`/app.config) | overcurrent protection + per-unit power quality / protection state |
 
 ## GIMAC 1000 — group ① (instantaneous)
 Avg voltage, avg current, phase currents A/B/C, phase voltages A/B/C, line
@@ -26,7 +26,7 @@ current, MAX apparent/active/reactive power, per-phase MAX voltage THD & current
 THD, MAX-demand per-phase/avg current, MAX-demand active power, per-phase
 voltage & current **1st–31st harmonics**, per-phase current **TDD** (%).
 
-## EOCR-iSEM2 + sPDM — group ① (per line #1–#10)
+## EOCR-iSEM2 + sPDM — group ① (per ISEM unit; source docx: #1–#10)
 Active/reactive energy (kWh/kVArh), thermal-capacity level (% Trip Level),
 max-current ratio (% OC), L1/L2/L3 current ratio (% Inom), max current
 imbalance (% imb), voltage frequency, avg voltage, line voltages L3-L1/L1-L2/
@@ -37,12 +37,12 @@ avg/L1/L2/L3/max RMS current, min voltage ratio (% Vnom), fast avg + line
 voltages, operating time (h), CPU junction temp (°C), internal reference voltage,
 12 VDC main supply, avg L1/L2/L3 current.
 
-## EOCR-iSEM2 + sPDM — group ② (per line)
+## EOCR-iSEM2 + sPDM — group ② (per ISEM unit)
 Avg ground current, avg max RMS current, avg line voltages, avg PF, avg
 active/reactive power, per-phase + max current crest factor, current/voltage
 fundamental frequency, avg + per-phase + max current THD, total/per-phase/max
-current degradation, per-phase fundamental & total current, avg + per-line
-voltage THD, per-line fundamental & total voltage.
+current degradation, per-phase fundamental & total current, avg + per-unit
+voltage THD, per-unit fundamental & total voltage.
 
 ## Meaning / use (§4)
 - **Voltage** (phase/line, avg, min/max, imbalance, fundamental, THD): source
@@ -62,5 +62,5 @@ voltage THD, per-line fundamental & total voltage.
 
 ## Note for the HMI / trend view
 These items feed the SciChart trend View(s). Group by source (GIMAC BUS IN/OUT,
-EOCR lines #1–#10) and by unit (V / A / W / Var / Hz / %); use separate Y axes
+EOCR-iSEM2 units) and by unit (V / A / W / Var / Hz / %); use separate Y axes
 per unit. See `.claude/rules/scichart.md`.
