@@ -330,6 +330,81 @@ namespace RLC_LoadBank_SeparateVer.Services
             static double ToD(object v) => v is DBNull ? 0 : Convert.ToDouble(v);
         }
 
+        private static double D(Npgsql.NpgsqlDataReader r, int i) => r.IsDBNull(i) ? 0 : Convert.ToDouble(r.GetValue(i));
+
+        /// <summary>GIMAC 1분 집계 조회 — GIMAC 전용 열(무효/피상전력 포함).</summary>
+        public IReadOnlyList<GimacAggRecord> QueryGimacAggs(
+            int max = 500, DateTime? fromLocal = null, DateTime? toLocal = null, int? panelNo = null)
+        {
+            var list = new List<GimacAggRecord>();
+            if (!_db.Enabled) return list;
+            try
+            {
+                string sql = @"SELECT ts, unit_id, panel_no, volt_avg, curr_avg,
+                                      kw_avg, kw_min, kw_max, kvar_avg, kva_avg, pf_avg, hz_avg
+                                 FROM tb_gimac_agg_1m WHERE TRUE";
+                if (fromLocal.HasValue) sql += " AND ts >= @f";
+                if (toLocal.HasValue)   sql += " AND ts <= @t";
+                if (panelNo.HasValue)   sql += " AND (panel_no = @p OR panel_no IS NULL)";
+                sql += " ORDER BY ts DESC LIMIT @m";
+
+                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
+                conn.Open();
+                using var cmd = BuildFilteredCommand(conn, sql, max, fromLocal, toLocal, panelNo);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    list.Add(new GimacAggRecord
+                    {
+                        Ts      = r.GetDateTime(0).ToLocalTime(),
+                        UnitId  = r.GetInt16(1),
+                        PanelNo = r.IsDBNull(2) ? (int?)null : r.GetInt16(2),
+                        VoltAvg = D(r, 3), CurrAvg = D(r, 4),
+                        KwAvg   = D(r, 5), KwMin = D(r, 6), KwMax = D(r, 7),
+                        KvarAvg = D(r, 8), KvaAvg = D(r, 9), PfAvg = D(r, 10), HzAvg = D(r, 11),
+                    });
+            }
+            catch (Exception ex) { Log.Warn(ex, "QueryGimacAggs failed: {0}", ex.Message); }
+            return list;
+        }
+
+        /// <summary>ISEM 1분 집계 조회 — ISEM 전용 열(상별 전류·접지전류 포함).</summary>
+        public IReadOnlyList<IsemAggRecord> QueryIsemAggs(
+            int max = 500, DateTime? fromLocal = null, DateTime? toLocal = null, int? panelNo = null)
+        {
+            var list = new List<IsemAggRecord>();
+            if (!_db.Enabled) return list;
+            try
+            {
+                string sql = @"SELECT ts, unit_id, panel_no, volt_avg,
+                                      curr_l1_avg, curr_l2_avg, curr_l3_avg, ground_ma_avg, ground_ma_max,
+                                      kw_avg, kw_min, kw_max, kvar_avg, pf_avg, hz_avg
+                                 FROM tb_isem_agg_1m WHERE TRUE";
+                if (fromLocal.HasValue) sql += " AND ts >= @f";
+                if (toLocal.HasValue)   sql += " AND ts <= @t";
+                if (panelNo.HasValue)   sql += " AND (panel_no = @p OR panel_no IS NULL)";
+                sql += " ORDER BY ts DESC LIMIT @m";
+
+                using var conn = new NpgsqlConnection(ServiceHub.ConnectionString);
+                conn.Open();
+                using var cmd = BuildFilteredCommand(conn, sql, max, fromLocal, toLocal, panelNo);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    list.Add(new IsemAggRecord
+                    {
+                        Ts        = r.GetDateTime(0).ToLocalTime(),
+                        UnitId    = r.GetInt16(1),
+                        PanelNo   = r.IsDBNull(2) ? (int?)null : r.GetInt16(2),
+                        VoltAvg   = D(r, 3),
+                        CurrL1    = D(r, 4), CurrL2 = D(r, 5), CurrL3 = D(r, 6),
+                        GroundAvg = D(r, 7), GroundMax = D(r, 8),
+                        KwAvg     = D(r, 9), KwMin = D(r, 10), KwMax = D(r, 11),
+                        KvarAvg   = D(r, 12), PfAvg = D(r, 13), HzAvg = D(r, 14),
+                    });
+            }
+            catch (Exception ex) { Log.Warn(ex, "QueryIsemAggs failed: {0}", ex.Message); }
+            return list;
+        }
+
         /// <summary>장비 연결/해제 이벤트 조회 (최신순).</summary>
         public IReadOnlyList<ConnectionEventRecord> QueryConnections(
             int max = 500, DateTime? fromLocal = null, DateTime? toLocal = null, int? panelNo = null)
