@@ -33,15 +33,36 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         public string Status      { get; set; }   // 활성 | 해제
     }
 
-    public class MeterRow
+    /// <summary>GIMAC 1분 집계 행 — 피상전력 포함, 전류는 3상 평균.</summary>
+    public class GimacRow
     {
         public string TimeText   { get; set; }
-        public string DeviceText { get; set; }   // GIMAC-1 / ISEM-3
+        public string DeviceText { get; set; }   // GIMAC-1
         public string PanelText  { get; set; }
         public string VoltText   { get; set; }
         public string CurrText   { get; set; }
         public string KwText     { get; set; }
         public string KwRange    { get; set; }   // min ~ max
+        public string KvarText   { get; set; }
+        public string KvaText    { get; set; }   // 피상전력 (GIMAC 고유)
+        public string PfText     { get; set; }
+        public string HzText     { get; set; }
+    }
+
+    /// <summary>ISEM 1분 집계 행 — 상별 전류·접지전류(보호) 포함.</summary>
+    public class IsemRow
+    {
+        public string TimeText   { get; set; }
+        public string DeviceText { get; set; }   // ISEM-3
+        public string PanelText  { get; set; }
+        public string VoltText   { get; set; }
+        public string CurrL1     { get; set; }
+        public string CurrL2     { get; set; }
+        public string CurrL3     { get; set; }
+        public string GroundText { get; set; }   // 접지전류 avg~max (ISEM 고유)
+        public string KwText     { get; set; }
+        public string KwRange    { get; set; }
+        public string KvarText   { get; set; }
         public string PfText     { get; set; }
         public string HzText     { get; set; }
     }
@@ -75,7 +96,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
     {
         public ObservableCollection<OperationRow> OpRows    { get; } = new ObservableCollection<OperationRow>();
         public ObservableCollection<AlarmRow>     AlarmRows { get; } = new ObservableCollection<AlarmRow>();
-        public ObservableCollection<MeterRow>     MeterRows { get; } = new ObservableCollection<MeterRow>();
+        public ObservableCollection<GimacRow>     GimacRows { get; } = new ObservableCollection<GimacRow>();
+        public ObservableCollection<IsemRow>      IsemRows  { get; } = new ObservableCollection<IsemRow>();
         public ObservableCollection<ConnRow>      ConnRows  { get; } = new ObservableCollection<ConnRow>();
 
         public string SourceText { get => GetValue<string>(); set => SetValue(value); }
@@ -88,13 +110,15 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
 
         public bool IsOpView    => SelectedCategory?.Key == "OP";
         public bool IsAlarmView => SelectedCategory?.Key == "ALARM";
-        public bool IsMeterView => SelectedCategory?.Key == "METER";
+        public bool IsGimacView => SelectedCategory?.Key == "GIMAC";
+        public bool IsIsemView  => SelectedCategory?.Key == "ISEM";
         public bool IsConnView  => SelectedCategory?.Key == "CONN";
 
         public int Count => SelectedCategory?.Key switch
         {
             "ALARM" => AlarmRows.Count,
-            "METER" => MeterRows.Count,
+            "GIMAC" => GimacRows.Count,
+            "ISEM"  => IsemRows.Count,
             "CONN"  => ConnRows.Count,
             _       => OpRows.Count,
         };
@@ -117,10 +141,11 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             Categories = new ObservableCollection<HistoryCategoryItem>
             {
-                new HistoryCategoryItem { Label = "운전 이력",          Key = "OP" },
-                new HistoryCategoryItem { Label = "알람",               Key = "ALARM" },
-                new HistoryCategoryItem { Label = "데이터 (ISEM·GIMAC)", Key = "METER" },
-                new HistoryCategoryItem { Label = "연결 이력",          Key = "CONN" },
+                new HistoryCategoryItem { Label = "운전 이력",     Key = "OP" },
+                new HistoryCategoryItem { Label = "알람",          Key = "ALARM" },
+                new HistoryCategoryItem { Label = "데이터 (GIMAC)", Key = "GIMAC" },
+                new HistoryCategoryItem { Label = "데이터 (ISEM)",  Key = "ISEM" },
+                new HistoryCategoryItem { Label = "연결 이력",     Key = "CONN" },
             };
             PanelFilters = new ObservableCollection<PanelFilterItem>
             {
@@ -143,7 +168,8 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
         {
             RaisePropertyChanged(nameof(IsOpView));
             RaisePropertyChanged(nameof(IsAlarmView));
-            RaisePropertyChanged(nameof(IsMeterView));
+            RaisePropertyChanged(nameof(IsGimacView));
+            RaisePropertyChanged(nameof(IsIsemView));
             RaisePropertyChanged(nameof(IsConnView));
             _ = LoadAsync();
         }
@@ -199,15 +225,24 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
                         SourceText = dbOn ? "PostgreSQL · tb_alarm_event" : "DB 미설정 (RLC_DB_CONN)";
                         break;
                     }
-                    case "METER":
+                    case "GIMAC":
                     {
                         var recs = dbOn
-                            ? await Task.Run(() => ServiceHub.DbLog.QueryMeterAggs(500, from, to, panel))
-                            : (IReadOnlyList<MeterAggRecord>)Array.Empty<MeterAggRecord>();
-                        MeterRows.Clear();
-                        foreach (var e in recs) MeterRows.Add(MapMeter(e));
-                        SourceText = dbOn ? "PostgreSQL · tb_gimac_agg_1m + tb_isem_agg_1m (1분 집계)"
-                                          : "DB 미설정 (RLC_DB_CONN)";
+                            ? await Task.Run(() => ServiceHub.DbLog.QueryGimacAggs(500, from, to, panel))
+                            : (IReadOnlyList<GimacAggRecord>)Array.Empty<GimacAggRecord>();
+                        GimacRows.Clear();
+                        foreach (var e in recs) GimacRows.Add(MapGimac(e));
+                        SourceText = dbOn ? "PostgreSQL · tb_gimac_agg_1m (1분 집계)" : "DB 미설정 (RLC_DB_CONN)";
+                        break;
+                    }
+                    case "ISEM":
+                    {
+                        var recs = dbOn
+                            ? await Task.Run(() => ServiceHub.DbLog.QueryIsemAggs(500, from, to, panel))
+                            : (IReadOnlyList<IsemAggRecord>)Array.Empty<IsemAggRecord>();
+                        IsemRows.Clear();
+                        foreach (var e in recs) IsemRows.Add(MapIsem(e));
+                        SourceText = dbOn ? "PostgreSQL · tb_isem_agg_1m (1분 집계)" : "DB 미설정 (RLC_DB_CONN)";
                         break;
                     }
                     case "CONN":
@@ -320,15 +355,34 @@ namespace RLC_LoadBank_SeparateVer.ViewModels
             Status = e.ClearedTs.HasValue ? "해제" : "활성",
         };
 
-        private static MeterRow MapMeter(MeterAggRecord e) => new MeterRow
+        private static GimacRow MapGimac(GimacAggRecord e) => new GimacRow
         {
             TimeText   = e.Ts.ToString("yyyy-MM-dd HH:mm"),
-            DeviceText = $"{e.DeviceType}-{e.UnitId}",
+            DeviceText = $"GIMAC-{e.UnitId}",
             PanelText  = PanelText(e.PanelNo),
             VoltText   = e.VoltAvg.ToString("F1"),
             CurrText   = e.CurrAvg.ToString("F1"),
             KwText     = e.KwAvg.ToString("F2"),
             KwRange    = $"{e.KwMin:F1} ~ {e.KwMax:F1}",
+            KvarText   = e.KvarAvg.ToString("F2"),
+            KvaText    = e.KvaAvg.ToString("F2"),
+            PfText     = e.PfAvg.ToString("F3"),
+            HzText     = e.HzAvg.ToString("F2"),
+        };
+
+        private static IsemRow MapIsem(IsemAggRecord e) => new IsemRow
+        {
+            TimeText   = e.Ts.ToString("yyyy-MM-dd HH:mm"),
+            DeviceText = $"ISEM-{e.UnitId}",
+            PanelText  = PanelText(e.PanelNo),
+            VoltText   = e.VoltAvg.ToString("F1"),
+            CurrL1     = e.CurrL1.ToString("F1"),
+            CurrL2     = e.CurrL2.ToString("F1"),
+            CurrL3     = e.CurrL3.ToString("F1"),
+            GroundText = $"{e.GroundAvg:F1} ~ {e.GroundMax:F1}",
+            KwText     = e.KwAvg.ToString("F2"),
+            KwRange    = $"{e.KwMin:F1} ~ {e.KwMax:F1}",
+            KvarText   = e.KvarAvg.ToString("F2"),
             PfText     = e.PfAvg.ToString("F3"),
             HzText     = e.HzAvg.ToString("F2"),
         };

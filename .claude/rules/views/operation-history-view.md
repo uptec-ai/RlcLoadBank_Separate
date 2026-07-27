@@ -9,15 +9,21 @@ paths:
 
 ## Purpose
 Read-only history browser with a **category ComboBox ("구분")** switching
-between four sources, each with its own grid (stacked DataGrids toggled via
-`IsOpView/IsAlarmView/IsMeterView/IsConnView` + BooleanToVisibility):
+between five sources, each with its own grid (stacked DataGrids toggled via
+`IsOpView/IsAlarmView/IsGimacView/IsIsemView/IsConnView` + BooleanToVisibility):
 
 | Category (Key) | Source | Notable columns |
 |---|---|---|
 | 운전 이력 (OP) | tb_operation_event | mode/op/target/capacity + result badge |
 | 알람 (ALARM) | tb_alarm_event | raised/cleared, type(한글), 활성(red)/해제(green) badge |
-| 데이터 ISEM·GIMAC (METER) | tb_gimac_agg_1m ∪ tb_isem_agg_1m | V/I/kW avg + per-min kW range/PF/Hz |
+| 데이터 (GIMAC) | tb_gimac_agg_1m | V/I/kW(+range)/**kVar/kVA**/PF/Hz |
+| 데이터 (ISEM) | tb_isem_agg_1m | V/**I L1/L2/L3**/**ground mA**/kW(+range)/kVar/PF/Hz |
 | 연결 이력 (CONN) | tb_connection_event | device, 연결/해제 badge |
+
+GIMAC and ISEM are **separate categories** (not a unioned view) so each meter's
+own fields show: GIMAC keeps apparent power (kVA); ISEM exposes per-phase
+current and the protection-relevant **ground current**. Backed by
+`DbLogService.QueryGimacAggs`/`QueryIsemAggs` (device-specific records).
 
 Shared filters (panel / period / optional HH:mm / quick-range) apply to all
 categories; category change reloads immediately. Hosted in `NaviFrame` via

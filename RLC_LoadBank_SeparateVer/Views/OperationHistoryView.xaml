@@ -142,23 +142,44 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- ③ 데이터 (ISEM·GIMAC 1분 집계) -->
-                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding MeterRows}"
-                          Visibility="{Binding IsMeterView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <!-- ③ 데이터 (GIMAC 1분 집계) — 피상전력 포함 -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding GimacRows}"
+                          Visibility="{Binding IsGimacView, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="시간"        Binding="{Binding TimeText}"   Width="130"/>
-                        <DataGridTextColumn Header="장비"        Binding="{Binding DeviceText}" Width="90"/>
-                        <DataGridTextColumn Header="판넬"        Binding="{Binding PanelText}"  Width="75"/>
-                        <DataGridTextColumn Header="전압 (V)"    Binding="{Binding VoltText}"   Width="90"/>
-                        <DataGridTextColumn Header="전류 (A)"    Binding="{Binding CurrText}"   Width="90"/>
-                        <DataGridTextColumn Header="유효전력 (kW)" Binding="{Binding KwText}"   Width="110"/>
-                        <DataGridTextColumn Header="kW 범위 (분)" Binding="{Binding KwRange}"   Width="120"/>
-                        <DataGridTextColumn Header="역률"        Binding="{Binding PfText}"     Width="80"/>
-                        <DataGridTextColumn Header="주파수 (Hz)" Binding="{Binding HzText}"     Width="*"/>
+                        <DataGridTextColumn Header="시간"         Binding="{Binding TimeText}"   Width="130"/>
+                        <DataGridTextColumn Header="장비"         Binding="{Binding DeviceText}" Width="80"/>
+                        <DataGridTextColumn Header="판넬"         Binding="{Binding PanelText}"  Width="70"/>
+                        <DataGridTextColumn Header="전압 (V)"     Binding="{Binding VoltText}"   Width="80"/>
+                        <DataGridTextColumn Header="전류 (A)"     Binding="{Binding CurrText}"   Width="80"/>
+                        <DataGridTextColumn Header="유효전력 (kW)"  Binding="{Binding KwText}"     Width="100"/>
+                        <DataGridTextColumn Header="kW 범위 (분)"  Binding="{Binding KwRange}"    Width="110"/>
+                        <DataGridTextColumn Header="무효전력 (kVAr)" Binding="{Binding KvarText}"  Width="105"/>
+                        <DataGridTextColumn Header="피상전력 (kVA)"  Binding="{Binding KvaText}"   Width="105"/>
+                        <DataGridTextColumn Header="역률"         Binding="{Binding PfText}"     Width="70"/>
+                        <DataGridTextColumn Header="주파수 (Hz)"   Binding="{Binding HzText}"     Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- ④ 연결 이력 -->
+                <!-- ④ 데이터 (ISEM 1분 집계) — 상별 전류·접지전류(보호) 포함 -->
+                <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding IsemRows}"
+                          Visibility="{Binding IsIsemView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="시간"          Binding="{Binding TimeText}"   Width="120"/>
+                        <DataGridTextColumn Header="장비"          Binding="{Binding DeviceText}" Width="75"/>
+                        <DataGridTextColumn Header="판넬"          Binding="{Binding PanelText}"  Width="65"/>
+                        <DataGridTextColumn Header="전압 (V)"      Binding="{Binding VoltText}"   Width="75"/>
+                        <DataGridTextColumn Header="전류 L1 (A)"   Binding="{Binding CurrL1}"     Width="85"/>
+                        <DataGridTextColumn Header="전류 L2 (A)"   Binding="{Binding CurrL2}"     Width="85"/>
+                        <DataGridTextColumn Header="전류 L3 (A)"   Binding="{Binding CurrL3}"     Width="85"/>
+                        <DataGridTextColumn Header="접지전류 (mA)"  Binding="{Binding GroundText}" Width="120"/>
+                        <DataGridTextColumn Header="유효전력 (kW)"   Binding="{Binding KwText}"     Width="100"/>
+                        <DataGridTextColumn Header="무효전력 (kVAr)" Binding="{Binding KvarText}"   Width="105"/>
+                        <DataGridTextColumn Header="역률"          Binding="{Binding PfText}"     Width="70"/>
+                        <DataGridTextColumn Header="주파수 (Hz)"    Binding="{Binding HzText}"     Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- ⑤ 연결 이력 -->
                 <DataGrid Style="{StaticResource HistGrid}" ItemsSource="{Binding ConnRows}"
                           Visibility="{Binding IsConnView, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <DataGrid.Columns>
